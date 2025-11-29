@@ -1,11 +1,14 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { Asset, PortfolioSummary, TargetStrategy, AssetType } from '../types';
 
 const getClient = () => {
+  // Use process.env.API_KEY as required by @google/genai guidelines
+  // This assumes API_KEY is injected into the build/environment
   const apiKey = process.env.API_KEY;
+  
   if (!apiKey) {
-    throw new Error("API Key not found in environment");
+    console.error("Missing API Key. Please check environment variables for API_KEY.");
+    throw new Error("API Key not found in environment (API_KEY)");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -19,13 +22,12 @@ export const generateStrategyReport = async (
     const ai = getClient();
     
     // Construct the context for Gemini
-    // We now include specific holding details for "Requirement 4"
     const holdingsDetail = assets.map(a => ({
        code: a.code,
        name: a.name, 
        type: a.type, 
        market_value: (a.quantity * a.currentPrice).toFixed(2),
-       pnl_percent: (((a.currentPrice - a.costBasis) / a.costBasis) * 100).toFixed(2) + '%'
+       pnl_percent: a.costBasis > 0 ? (((a.currentPrice - a.costBasis) / a.costBasis) * 100).toFixed(2) + '%' : '0%'
     }));
 
     const context = {
@@ -62,13 +64,13 @@ export const generateStrategyReport = async (
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 0 } // Flash model for speed
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
     return response.text || "无法生成分析报告。";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "生成策略报告时出错，请检查API Key是否有效。";
+    return "生成策略报告时出错，请检查 API Key 配置 (API_KEY) 是否正确。";
   }
 };
