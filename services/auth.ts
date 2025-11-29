@@ -1,14 +1,9 @@
 import { User, UserCloudData } from '../types';
 
 // Use the local proxy path defined in vite.config.ts (local) and vercel.json (production)
-// This bypasses CORS by routing the request through our own origin.
 const API_BASE = "/api/kv";
-// Unique prefix to namespace our app's data in the public store
 const APP_PREFIX = "alphaseeker_v1_user_";
 
-// Helper to encode data for URL (since this specific API passes value in URL path)
-// NOTE: For a production financial app, you MUST use strong encryption (AES) before sending data.
-// Here we use Base64 + URL Encoding for basic transport and obfuscation.
 const encodeData = (data: any): string => {
   const json = JSON.stringify(data);
   // Base64 encode to hide plain text
@@ -20,6 +15,9 @@ const encodeData = (data: any): string => {
 
 const decodeData = (encoded: string): any => {
   try {
+    // Robust check: if response is HTML (error page) or empty, return null
+    if (!encoded || encoded.trim().startsWith('<')) return null;
+    
     const base64 = decodeURIComponent(encoded);
     const json = decodeURIComponent(Array.prototype.map.call(atob(base64), (c: string) => {
       return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
@@ -32,7 +30,7 @@ const decodeData = (encoded: string): any => {
 };
 
 export const AuthService = {
-  // Session Persistence (still local, just for "Remember Me" on this device)
+  // Session Persistence
   getCurrentUser: (): User | null => {
     const userStr = localStorage.getItem('alphaSeeker_current_user');
     return userStr ? JSON.parse(userStr) : null;
@@ -42,26 +40,28 @@ export const AuthService = {
     localStorage.removeItem('alphaSeeker_current_user');
   },
 
-  // REGISTER: Create a new key in the cloud
+  // REGISTER
   register: async (email: string, password: string): Promise<User> => {
+    // URL Encode the key to ensure special chars like @ don't break the path
+    const safeKey = encodeURIComponent(`${APP_PREFIX}${email}`);
+
     // 1. Check if user exists
-    const checkRes = await fetch(`${API_BASE}/${APP_PREFIX}${email}`);
-    const checkData = await checkRes.text(); // API returns "null" string or value
+    const checkRes = await fetch(`${API_BASE}/${safeKey}`);
     
-    if (checkData && checkData !== "null") {
-      throw new Error('该邮箱已被注册，请直接登录');
+    // If status is 200, data might exist. If 404, it definitely doesn't.
+    if (checkRes.ok) {
+        const checkData = await checkRes.text();
+        // If we got valid data back, user exists
+        if (checkData && checkData !== "null" && !checkData.trim().startsWith('<')) {
+           throw new Error('该邮箱已被注册，请直接登录');
+        }
     }
 
-    // 2. Create Initial Data Structure
-    const initialPayload = {
-      password, // Store password to verify login (In production: NEVER store plain password, hash it!)
-      data: null
-    };
-
-    // 3. Save to Cloud
-    // API Format: POST /api/Key/Value/{key}/{value}
+    const initialPayload = { password, data: null };
     const val = encodeData(initialPayload);
-    const saveRes = await fetch(`${API_BASE}/${APP_PREFIX}${email}/${val}`, { method: 'POST' });
+    
+    // 2. Save to Cloud
+    const saveRes = await fetch(`${API_BASE}/${safeKey}/${val}`, { method: 'POST' });
     
     if (!saveRes.ok) {
       throw new Error('注册失败，云端服务暂时不可用');
@@ -72,13 +72,22 @@ export const AuthService = {
     return user;
   },
 
-  // LOGIN: Fetch key from cloud and verify password
+  // LOGIN
   login: async (email: string, password: string): Promise<User> => {
+    const safeKey = encodeURIComponent(`${APP_PREFIX}${email}`);
+    
     try {
-      const res = await fetch(`${API_BASE}/${APP_PREFIX}${email}`);
+      const res = await fetch(`${API_BASE}/${safeKey}`);
+      
+      // Handle 404 (Key not found) specifically
+      if (res.status === 404) {
+         throw new Error('账号不存在，请先注册');
+      }
+      
       const rawText = await res.text();
 
-      if (!rawText || rawText === "null") {
+      // Check for empty, null, or HTML (error page from proxy)
+      if (!rawText || rawText === "null" || rawText.trim().startsWith('<')) {
         throw new Error('账号不存在，请先注册');
       }
 
@@ -92,22 +101,28 @@ export const AuthService = {
       localStorage.setItem('alphaSeeker_current_user', JSON.stringify(user));
       return user;
     } catch (e: any) {
-      throw new Error(e.message || '登录失败，请检查网络');
+      if (e.message.includes('账号') || e.message.includes('密码')) {
+        throw e;
+      }
+      console.error("Login error details:", e);
+      throw new Error('登录失败，请检查网络');
     }
   },
 
-  // SAVE: Update only the 'data' part, keep password
+  // SAVE
   saveData: async (email: string, data: UserCloudData): Promise<void> => {
-    // 1. We need to fetch current record first to keep the password intact
-    // (Optimization: In a real app, backend handles this. Here we must read-modify-write)
-    const res = await fetch(`${API_BASE}/${APP_PREFIX}${email}`);
-    const rawText = await res.text();
+    const safeKey = encodeURIComponent(`${APP_PREFIX}${email}`);
     
-    if (!rawText || rawText === "null") return; // Should not happen if logged in
+    // Fetch current to preserve password
+    const res = await fetch(`${API_BASE}/${safeKey}`);
+    if (!res.ok) return;
+    
+    const rawText = await res.text();
+    if (!rawText || rawText === "null" || rawText.startsWith('<')) return;
 
     const remoteRecord = decodeData(rawText);
+    if (!remoteRecord) return;
     
-    // 2. Update data
     const updatedRecord = {
       ...remoteRecord,
       data: {
@@ -116,19 +131,21 @@ export const AuthService = {
       }
     };
 
-    // 3. Push back to cloud
     const val = encodeData(updatedRecord);
-    await fetch(`${API_BASE}/${APP_PREFIX}${email}/${val}`, { method: 'POST' });
+    await fetch(`${API_BASE}/${safeKey}/${val}`, { method: 'POST' });
   },
 
-  // LOAD: Fetch data part
+  // LOAD
   loadData: async (email: string): Promise<UserCloudData | null> => {
-    const res = await fetch(`${API_BASE}/${APP_PREFIX}${email}`);
-    const rawText = await res.text();
+    const safeKey = encodeURIComponent(`${APP_PREFIX}${email}`);
     
-    if (!rawText || rawText === "null") return null;
+    const res = await fetch(`${API_BASE}/${safeKey}`);
+    if (!res.ok) return null;
+    
+    const rawText = await res.text();
+    if (!rawText || rawText === "null" || rawText.startsWith('<')) return null;
 
     const remoteRecord = decodeData(rawText);
-    return remoteRecord.data || null;
+    return remoteRecord?.data || null;
   }
 };
