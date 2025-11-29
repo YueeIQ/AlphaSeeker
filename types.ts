@@ -41,3 +41,16 @@ export interface MarketData {
 }
 
 export type TrafficLightStatus = 'green' | 'yellow' | 'red';
+
+// Auth Types
+export interface User {
+  email: string;
+  name: string;
+}
+
+export interface UserCloudData {
+  assets: Asset[];
+  cashBalance: number;
+  strategy: TargetStrategy;
+  lastSynced: number;
+}
