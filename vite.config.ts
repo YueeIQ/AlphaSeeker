@@ -17,5 +17,15 @@ export default defineConfig(({ mode }) => {
       // Also define process.env as an empty object to prevent crashes if other libs access it
       'process.env': {},
     },
+    // Proxy configuration for local development to bypass CORS
+    server: {
+      proxy: {
+        '/api/kv': {
+          target: 'https://keyvalue.immanuel.co/api/Key/Value',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/kv/, ''),
+        },
+      },
+    },
   };
 });

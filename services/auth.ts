@@ -1,8 +1,8 @@
 import { User, UserCloudData } from '../types';
 
-// Using a public free Key-Value store API for demonstration purposes.
-// In a real production app, this would be your own secure backend endpoint.
-const API_BASE = "https://keyvalue.immanuel.co/api/Key/Value";
+// Use the local proxy path defined in vite.config.ts (local) and vercel.json (production)
+// This bypasses CORS by routing the request through our own origin.
+const API_BASE = "/api/kv";
 // Unique prefix to namespace our app's data in the public store
 const APP_PREFIX = "alphaseeker_v1_user_";
 
