@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AuthService } from '../services/auth';
 import { User, UserCloudData } from '../types';
@@ -28,7 +29,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, 
       if (isLoginMode) {
         // Login Flow
         const user = await AuthService.login(email, password);
-        const data = await AuthService.loadData(email);
+        const data = await AuthService.loadData();
         onLoginSuccess(user, data);
         onClose();
       } else {
@@ -36,7 +37,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, 
         const user = await AuthService.register(email, password);
         // If registering, we automatically sync current local data to the new account
         if (currentData) {
-            await AuthService.saveData(user.email, currentData);
+            await AuthService.saveData(currentData);
         }
         onLoginSuccess(user, null); // No cloud data to load, we just saved current
         onClose();

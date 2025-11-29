@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/kv/:path*",
-      "destination": "https://keyvalue.immanuel.co/api/Key/Value/:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

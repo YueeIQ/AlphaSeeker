@@ -41,12 +41,17 @@ const App: React.FC = () => {
 
   // --- Effects ---
 
-  // 1. Initialize User Session
+  // 1. Initialize User Session with Firebase Listener
+  // This ensures that on page refresh, we correctly identify if the user is logged in
   useEffect(() => {
-    const currentUser = AuthService.getCurrentUser();
-    if (currentUser) {
+    const unsubscribe = AuthService.onAuthStateChange((currentUser) => {
       setUser(currentUser);
-    }
+      
+      // Optional: Auto-load data on fresh login/page load if user exists
+      // But we keep manual load confirmation on Login Success for UX choice, 
+      // or we could silently sync here.
+    });
+    return () => unsubscribe();
   }, []);
 
   // 2. Local Persistence (Always Save to LocalStorage for offline capability)
@@ -61,7 +66,7 @@ const App: React.FC = () => {
     let timeoutId: ReturnType<typeof setTimeout>;
     if (user) {
       setIsSyncing(true);
-      // Debounce the save to avoid hammering the API
+      // Debounce the save to avoid hammering Firestore
       timeoutId = setTimeout(() => {
         const cloudData: UserCloudData = {
           assets,
@@ -69,7 +74,8 @@ const App: React.FC = () => {
           strategy,
           lastSynced: Date.now()
         };
-        AuthService.saveData(user.email, cloudData)
+        // Removed 'user.email' param as Firebase uses auth.currentUser.uid internally now
+        AuthService.saveData(cloudData)
           .then(() => setIsSyncing(false))
           .catch(err => {
              console.error("Sync failed", err);
@@ -83,23 +89,26 @@ const App: React.FC = () => {
 
   // --- Auth & Data Handlers ---
   
-  const handleLoginSuccess = (loggedInUser: User, cloudData: UserCloudData | null) => {
-    setUser(loggedInUser);
-    if (cloudData) {
-      // Logic: If logging in, usually we want to see our remote data.
-      // We can prompt to confirm overwriting local data.
-      if (confirm('登录成功！检测到云端存档，是否加载并覆盖当前页面数据？')) {
-        if (cloudData.assets) setAssets(cloudData.assets);
-        if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
-        if (cloudData.strategy) setStrategy(cloudData.strategy);
+  const handleLoginSuccess = async (loggedInUser: User) => {
+    // Note: User state is also handled by onAuthStateChange, but we trigger data load here
+    try {
+      const cloudData = await AuthService.loadData();
+      if (cloudData) {
+        if (confirm('登录成功！检测到云端存档，是否加载并覆盖当前页面数据？')) {
+          if (cloudData.assets) setAssets(cloudData.assets);
+          if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
+          if (cloudData.strategy) setStrategy(cloudData.strategy);
+        }
       }
+    } catch (e) {
+      console.error("Failed to load initial data", e);
     }
   };
 
   const handleLogout = () => {
-    if(confirm('确定要退出登录吗？退出后将停止云端同步。')) {
+    if(confirm('确定要退出登录吗？')) {
       AuthService.logout();
-      setUser(null);
+      // User state will be cleared by the useEffect listener
     }
   };
 

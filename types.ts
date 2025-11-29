@@ -44,6 +44,7 @@ export type TrafficLightStatus = 'green' | 'yellow' | 'red';
 
 // Auth Types
 export interface User {
+  uid: string;
   email: string;
   name: string;
 }
