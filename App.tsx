@@ -294,6 +294,55 @@ const App: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const handleManualSync = async () => {
+    if (!user) return;
+    
+    const action = window.prompt('请选择同步方向：\n1. 将本地数据同步到云端 (覆盖云端)\n2. 从云端拉取数据到本地 (覆盖本地)\n请输入 1 或 2', '1');
+    
+    if (action === '1') {
+      setIsSyncing(true);
+      try {
+        const cloudData: UserCloudData = {
+          assets,
+          cashBalance,
+          realizedLoss,
+          realizedProfit,
+          strategy,
+          settlementConfig,
+          lastSynced: Date.now()
+        };
+        await AuthService.saveData(cloudData);
+        alert('已成功将本地数据同步到云端！');
+      } catch (err) {
+        console.error("Sync to cloud failed", err);
+        alert('同步到云端失败，请重试。');
+      } finally {
+        setIsSyncing(false);
+      }
+    } else if (action === '2') {
+      setIsSyncing(true);
+      try {
+        const serverData = await AuthService.loadData();
+        if (serverData) {
+          if (serverData.assets) setAssets(serverData.assets);
+          if (typeof serverData.cashBalance === 'number') setCashBalance(serverData.cashBalance);
+          if (typeof serverData.realizedLoss === 'number') setRealizedLoss(serverData.realizedLoss);
+          if (typeof serverData.realizedProfit === 'number') setRealizedProfit(serverData.realizedProfit);
+          if (serverData.strategy) setStrategy(serverData.strategy);
+          if (serverData.settlementConfig) setSettlementConfig(serverData.settlementConfig);
+          alert('已成功从云端拉取数据并覆盖本地！');
+        } else {
+          alert('云端没有找到数据。');
+        }
+      } catch (err) {
+        console.error("Sync from cloud failed", err);
+        alert('从云端拉取数据失败，请重试。');
+      } finally {
+        setIsSyncing(false);
+      }
+    }
+  };
+
   const targetCashAmount = summary.totalValue * ((strategy.allocations[AssetType.CASH] || 0) / 100);
   const investableCash = Math.max(0, summary.cashBalance - targetCashAmount);
 
@@ -314,15 +363,17 @@ const App: React.FC = () => {
                <div className="flex items-center gap-3 mr-2 pl-2 border-l border-gray-100">
                   <div className="flex flex-col items-end hidden md:flex">
                      <span className="text-sm font-bold text-gray-800">{user.name}</span>
-                     <span className="text-xs text-indigo-500 flex items-center gap-1">
-                       {isSyncing ? '云同步中...' : '云端已同步'}
-                       {isSyncing ? <Cloud size={10} className="animate-pulse"/> : <Cloud size={10} />}
-                     </span>
+                     <button 
+                       onClick={handleManualSync} 
+                       disabled={isSyncing}
+                       className="text-xs text-indigo-500 flex items-center gap-1 hover:text-indigo-700 transition disabled:opacity-50"
+                       title="手动同步数据"
+                     >
+                       {isSyncing ? '同步中...' : '手动同步'}
+                       <Cloud size={12} className={isSyncing ? "animate-pulse" : ""} />
+                     </button>
                   </div>
-                  <div className="bg-indigo-50 p-1.5 rounded-full text-indigo-600">
-                    <UserCircle size={24} />
-                  </div>
-                  <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500 transition hover:bg-red-50 rounded-lg">
+                  <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500 transition hover:bg-red-50 rounded-lg" title="退出登录">
                     <LogOut size={18} />
                   </button>
                </div>
