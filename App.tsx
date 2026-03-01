@@ -76,28 +76,24 @@ const App: React.FC = () => {
   }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig]);
 
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>;
     if (user) {
       setIsSyncing(true);
-      timeoutId = setTimeout(() => {
-        const cloudData: UserCloudData = {
-          assets,
-          cashBalance,
-          realizedLoss,
-          realizedProfit,
-          strategy,
-          settlementConfig,
-          lastSynced: Date.now()
-        };
-        AuthService.saveData(cloudData)
-          .then(() => setIsSyncing(false))
-          .catch(err => {
-             console.error("Sync failed", err);
-             setIsSyncing(false); 
-          });
-      }, 3000);
+      const cloudData: UserCloudData = {
+        assets,
+        cashBalance,
+        realizedLoss,
+        realizedProfit,
+        strategy,
+        settlementConfig,
+        lastSynced: Date.now()
+      };
+      AuthService.saveData(cloudData)
+        .then(() => setIsSyncing(false))
+        .catch(err => {
+           console.error("Sync failed", err);
+           setIsSyncing(false); 
+        });
     }
-    return () => clearTimeout(timeoutId);
   }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, user]);
 
   const handleLoginSuccess = async (loggedInUser: User) => {
@@ -483,7 +479,6 @@ const App: React.FC = () => {
                   <th className="px-6 py-3 font-semibold">类别</th>
                   <th className="px-6 py-3 text-right font-semibold">占比</th>
                   <th className="px-6 py-3 text-right font-semibold">持仓成本</th>
-                  <th className="px-6 py-3 text-right font-semibold">最新净值</th>
                   <th className="px-6 py-3 text-right font-semibold">市值</th>
                   <th className="px-6 py-3 text-right font-semibold">浮动盈亏</th>
                   <th className="px-6 py-3 text-center font-semibold">操作</th>
@@ -498,7 +493,6 @@ const App: React.FC = () => {
                         {summary.totalValue > 0 ? ((cashBalance / summary.totalValue) * 100).toFixed(2) : 0}%
                       </td>
                       <td className="px-6 py-4 text-right text-gray-500">{fmtMoney(cashBalance)}</td>
-                      <td className="px-6 py-4 text-right text-gray-500">1.00</td>
                       <td className="px-6 py-4 text-right font-bold text-gray-900">{fmtMoney(cashBalance)}</td>
                       <td className="px-6 py-4 text-right text-gray-400">-</td>
                       <td className="px-6 py-4 text-center">
@@ -525,7 +519,6 @@ const App: React.FC = () => {
                          <span className="text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded text-gray-700">{portfolioPct.toFixed(2)}%</span>
                       </td>
                       <td className="px-6 py-4 text-right font-mono text-gray-600">{fmtMoney(totalCost)}</td>
-                      <td className="px-6 py-4 text-right font-mono font-medium text-indigo-600">{fmtPrice(asset.currentPrice)}</td>
                       <td className="px-6 py-4 text-right font-bold text-gray-900">{fmtMoney(marketVal)}</td>
                       <td className={`px-6 py-4 text-right font-medium ${gain >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {gain >= 0 ? '+' : ''}{fmtMoney(gain)} <br/>
