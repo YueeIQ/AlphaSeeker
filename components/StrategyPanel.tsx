@@ -18,6 +18,8 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ portfolio, assets, strate
       const currentAlloc = portfolio.allocation[type] || 0;
       const targetAlloc = strategy.allocations[type] || 0;
       
+      if (targetAlloc === 0) return null;
+
       // Calculate Drift
       const drift = currentAlloc - targetAlloc;
       // Prevent division by zero

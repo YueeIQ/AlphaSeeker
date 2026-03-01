@@ -318,49 +318,24 @@ const App: React.FC = () => {
   const handleManualSync = async () => {
     if (!user) return;
     
-    const action = window.prompt('请选择同步方向：\n1. 将本地数据同步到云端 (覆盖云端)\n2. 从云端拉取数据到本地 (覆盖本地)\n请输入 1 或 2', '1');
-    
-    if (action === '1') {
-      setIsSyncing(true);
-      try {
-        const cloudData: UserCloudData = {
-          assets,
-          cashBalance,
-          realizedLoss,
-          realizedProfit,
-          strategy,
-          settlementConfig,
-          lastSynced: Date.now()
-        };
-        await AuthService.saveData(cloudData);
-        alert('已成功将本地数据同步到云端！');
-      } catch (err) {
-        console.error("Sync to cloud failed", err);
-        alert('同步到云端失败，请重试。');
-      } finally {
-        setIsSyncing(false);
-      }
-    } else if (action === '2') {
-      setIsSyncing(true);
-      try {
-        const serverData = await AuthService.loadData();
-        if (serverData) {
-          if (serverData.assets) setAssets(serverData.assets);
-          if (typeof serverData.cashBalance === 'number') setCashBalance(serverData.cashBalance);
-          if (typeof serverData.realizedLoss === 'number') setRealizedLoss(serverData.realizedLoss);
-          if (typeof serverData.realizedProfit === 'number') setRealizedProfit(serverData.realizedProfit);
-          if (serverData.strategy) setStrategy(serverData.strategy);
-          if (serverData.settlementConfig) setSettlementConfig(serverData.settlementConfig);
-          alert('已成功从云端拉取数据并覆盖本地！');
-        } else {
-          alert('云端没有找到数据。');
-        }
-      } catch (err) {
-        console.error("Sync from cloud failed", err);
-        alert('从云端拉取数据失败，请重试。');
-      } finally {
-        setIsSyncing(false);
-      }
+    setIsSyncing(true);
+    try {
+      const cloudData: UserCloudData = {
+        assets,
+        cashBalance,
+        realizedLoss,
+        realizedProfit,
+        strategy,
+        settlementConfig,
+        lastSynced: Date.now()
+      };
+      await AuthService.saveData(cloudData);
+      alert('已成功将数据同步到云端！');
+    } catch (err) {
+      console.error("Sync to cloud failed", err);
+      alert('同步失败，请重试。');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
