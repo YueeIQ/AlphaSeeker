@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [hasLoadedCloudData, setHasLoadedCloudData] = useState(false);
 
   // --- Data State ---
   const [assets, setAssets] = useState<Asset[]>(() => {
@@ -60,8 +61,32 @@ const App: React.FC = () => {
   // --- Effects ---
 
   useEffect(() => {
-    const unsubscribe = AuthService.onAuthStateChange((currentUser) => {
+    const unsubscribe = AuthService.onAuthStateChange(async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        // If user is already logged in (e.g. page refresh), load their data
+        try {
+          const cloudData = await AuthService.loadData();
+          if (cloudData) {
+            // For auto-load on refresh, we don't necessarily want to confirm every time
+            // but for safety and consistency with handleLoginSuccess, we can just load it
+            // if local storage is empty or older. 
+            // However, to keep it simple and fix the sync issue:
+            if (cloudData.assets) setAssets(cloudData.assets);
+            if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
+            if (typeof cloudData.realizedLoss === 'number') setRealizedLoss(cloudData.realizedLoss);
+            if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
+            if (cloudData.strategy) setStrategy(cloudData.strategy);
+            if (cloudData.settlementConfig) setSettlementConfig(cloudData.settlementConfig);
+          }
+          setHasLoadedCloudData(true);
+        } catch (e) {
+          console.error("Failed to load initial data on auth change", e);
+          setHasLoadedCloudData(true);
+        }
+      } else {
+        setHasLoadedCloudData(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -76,7 +101,7 @@ const App: React.FC = () => {
   }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig]);
 
   useEffect(() => {
-    if (user) {
+    if (user && hasLoadedCloudData) {
       setIsSyncing(true);
       const cloudData: UserCloudData = {
         assets,
@@ -94,24 +119,20 @@ const App: React.FC = () => {
            setIsSyncing(false); 
         });
     }
-  }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, user]);
+  }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, user, hasLoadedCloudData]);
 
-  const handleLoginSuccess = async (loggedInUser: User) => {
-    try {
-      const cloudData = await AuthService.loadData();
-      if (cloudData) {
-        if (confirm('登录成功！检测到云端存档，是否加载并覆盖当前页面数据？')) {
-          if (cloudData.assets) setAssets(cloudData.assets);
-          if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
-          if (typeof cloudData.realizedLoss === 'number') setRealizedLoss(cloudData.realizedLoss);
-          if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
-          if (cloudData.strategy) setStrategy(cloudData.strategy);
-          if (cloudData.settlementConfig) setSettlementConfig(cloudData.settlementConfig);
-        }
+  const handleLoginSuccess = async (loggedInUser: User, cloudData: UserCloudData | null) => {
+    if (cloudData) {
+      if (confirm('登录成功！检测到云端存档，是否加载并覆盖当前页面数据？')) {
+        if (cloudData.assets) setAssets(cloudData.assets);
+        if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
+        if (typeof cloudData.realizedLoss === 'number') setRealizedLoss(cloudData.realizedLoss);
+        if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
+        if (cloudData.strategy) setStrategy(cloudData.strategy);
+        if (cloudData.settlementConfig) setSettlementConfig(cloudData.settlementConfig);
       }
-    } catch (e) {
-      console.error("Failed to load initial data", e);
     }
+    setHasLoadedCloudData(true);
   };
 
   const handleLogout = () => {
