@@ -287,7 +287,7 @@ const App: React.FC = () => {
   const fmtPct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
 
   const handleExportAssets = () => {
-    const csvContent = assets.map(a => `${a.name}, ${a.type}, ${a.code}, ${a.costBasis}, ${a.quantity}`).join('\n');
+    const csvContent = assets.map(a => `${a.name}, ${a.type}, ="${a.code}", ${a.costBasis}, ${a.quantity}`).join('\n');
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

@@ -124,7 +124,7 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
       if (parts.length >= 5) {
         const inputName = parts[0].trim();
         const inputTypeStr = parts[1].trim();
-        const inputCode = parts[2].replace(/^(sh|sz|of)/i, '').trim();
+        const inputCode = parts[2].replace(/^(sh|sz|of)/i, '').replace(/[="]/g, '').trim();
         const inputCost = parseFloat(parts[3]);
         const inputQty = parseFloat(parts[4]);
         if (!inputName || isNaN(inputCost) || isNaN(inputQty)) continue;

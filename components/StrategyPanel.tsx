@@ -86,10 +86,10 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ portfolio, assets, strate
             
             <div className="flex items-center gap-4">
               <div className="text-right">
-                {Math.abs(item.diffValue) > 0.01 && (
+                {Math.floor(Math.abs(item.diffValue) / 1000) * 1000 > 0 && (
                   <div className="text-sm font-medium text-gray-700">
                     {item.diffValue > 0 ? '需减仓 ' : '需补仓 '}
-                    <span className="font-bold">{fmtMoney(Math.abs(item.diffValue))}</span>
+                    <span className="font-bold">{fmtMoney(Math.floor(Math.abs(item.diffValue) / 1000) * 1000)}</span>
                   </div>
                 )}
               </div>
