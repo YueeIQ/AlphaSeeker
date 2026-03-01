@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, RefreshCcw, TrendingUp, DollarSign, PieChart as PieIcon, Wallet, Coins, Settings, UserCircle, LogOut, Cloud, Calculator, Trash2, BarChart3 } from 'lucide-react';
+import { Plus, RefreshCcw, TrendingUp, DollarSign, PieChart as PieIcon, Wallet, Coins, Settings, UserCircle, LogOut, Cloud, Calculator, Trash2, BarChart3, Download } from 'lucide-react';
 import { Asset, PortfolioSummary, AssetType, TargetStrategy, User, UserCloudData, SettlementConfig } from './types';
 import { INITIAL_ASSETS, DEFAULT_STRATEGY, DEFAULT_SETTLEMENT_CONFIG } from './constants';
 import { fetchLatestPrices } from './services/market';
@@ -286,6 +286,18 @@ const App: React.FC = () => {
   const fmtPrice = (n: number) => n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
   const fmtPct = (n: number) => `${n > 0 ? '+' : ''}${n.toFixed(2)}%`;
 
+  const handleExportAssets = () => {
+    const csvContent = assets.map(a => `${a.name}, ${a.type}, ${a.code}, ${a.costBasis}, ${a.quantity}`).join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'alphaseeker_assets.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const targetCashAmount = summary.totalValue * ((strategy.allocations[AssetType.CASH] || 0) / 100);
   const investableCash = Math.max(0, summary.cashBalance - targetCashAmount);
 
@@ -452,7 +464,16 @@ const App: React.FC = () => {
              <h3 className="font-bold text-gray-800 flex items-center gap-2">
                <Wallet size={18} className="text-gray-400" /> 持仓明细
              </h3>
-             <span className="text-[10px] text-gray-400">源: 天天基金 (优先 GSZ)</span>
+             <div className="flex items-center gap-4">
+               <span className="text-[10px] text-gray-400">源: 天天基金 (优先 GSZ)</span>
+               <button 
+                 onClick={handleExportAssets}
+                 className="text-xs flex items-center gap-1 text-gray-600 hover:text-indigo-600 font-medium bg-white border border-gray-200 hover:border-indigo-200 hover:bg-indigo-50 px-2.5 py-1 rounded transition"
+                 title="导出为CSV (可用于批量导入)"
+               >
+                 <Download size={12} /> 批量导出
+               </button>
+             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { PortfolioSummary } from '../types';
+import { PortfolioSummary, AssetType } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ReferenceLine, CartesianGrid } from 'recharts';
 
 interface PortfolioChartProps {
@@ -46,9 +46,9 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ summary }) => {
     return <div className="h-full flex items-center justify-center text-gray-400 text-xs">加载中...</div>;
   }
 
-  // Transform data: Filter out assets with no value/activity, Sort by Profit Descending
+  // Transform data: Filter out Cash and assets with no value/activity, Sort by Profit Descending
   const data = (Object.entries(summary.typeDetails) as [string, { value: number; cost: number; return: number; returnPercent: number }][])
-    .filter(([_, detail]) => detail.value > 0 || Math.abs(detail.return) > 1) 
+    .filter(([type, detail]) => type !== AssetType.CASH && (detail.value > 0 || Math.abs(detail.return) > 1)) 
     .map(([type, detail]) => ({
       name: type,
       profit: detail.return,
