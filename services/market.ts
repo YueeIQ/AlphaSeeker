@@ -147,6 +147,64 @@ const fetchFromTiantian = (code: string): Promise<{ name: string; price: number;
 };
 
 const fetchUSStock = async (code: string): Promise<{ name: string; price: number; basePrice?: number; currency?: 'CNY' | 'USD' } | null> => {
+  // 1. Try Tencent Finance (Fastest and most reliable for US Stocks)
+  try {
+    const tencentResult = await new Promise<{ name: string; price: number; basePrice?: number; currency?: 'CNY' | 'USD' } | null>((resolve) => {
+      const script = document.createElement('script');
+      script.charset = 'gbk';
+      const upperCode = code.toUpperCase();
+      const varName = `v_us${upperCode}`;
+      
+      script.src = `https://qt.gtimg.cn/q=us${upperCode}`;
+      
+      script.onload = () => {
+        try {
+          const data = (window as any)[varName];
+          if (data && !data.includes('v_pv_none_match')) {
+            const parts = data.split('~');
+            if (parts.length > 3) {
+              const name = parts[1];
+              const price = parseFloat(parts[3]);
+              const prevClose = parseFloat(parts[4]);
+              
+              if (!isNaN(price) && price > 0) {
+                resolve({
+                  name: name || upperCode,
+                  price: price,
+                  basePrice: prevClose || price,
+                  currency: 'USD'
+                });
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to parse Tencent Finance data for ${code}`, e);
+        } finally {
+          if (script.parentNode) {
+            document.body.removeChild(script);
+          }
+          delete (window as any)[varName];
+        }
+        resolve(null);
+      };
+      
+      script.onerror = () => {
+        if (script.parentNode) {
+          document.body.removeChild(script);
+        }
+        resolve(null);
+      };
+      
+      document.body.appendChild(script);
+    });
+    
+    if (tencentResult) return tencentResult;
+  } catch (e) {
+    console.warn("Tencent Finance fetch failed", e);
+  }
+
+  // 2. Fallback to Yahoo Finance (For Crypto or unsupported stocks)
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${code}?range=ytd&interval=1d`;
     let response;
@@ -223,6 +281,55 @@ export const lookupAssetDetails = async (code: string): Promise<{ name: string; 
 };
 
 export const fetchExchangeRate = async (): Promise<number> => {
+  // 1. Try Tencent Finance for USD/CNY exchange rate
+  try {
+    const tencentRate = await new Promise<number | null>((resolve) => {
+      const script = document.createElement('script');
+      script.charset = 'gbk';
+      const varName = 'v_whUSDCNY';
+      
+      script.src = `https://qt.gtimg.cn/q=whUSDCNY`;
+      
+      script.onload = () => {
+        try {
+          const data = (window as any)[varName];
+          if (data && !data.includes('v_pv_none_match')) {
+            const parts = data.split('~');
+            if (parts.length > 3) {
+              const rate = parseFloat(parts[3]);
+              if (!isNaN(rate) && rate > 0) {
+                resolve(rate);
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to parse Tencent Finance exchange rate`, e);
+        } finally {
+          if (script.parentNode) {
+            document.body.removeChild(script);
+          }
+          delete (window as any)[varName];
+        }
+        resolve(null);
+      };
+      
+      script.onerror = () => {
+        if (script.parentNode) {
+          document.body.removeChild(script);
+        }
+        resolve(null);
+      };
+      
+      document.body.appendChild(script);
+    });
+    
+    if (tencentRate) return tencentRate;
+  } catch (e) {
+    console.warn("Tencent Finance exchange rate fetch failed", e);
+  }
+
+  // 2. Fallback to Yahoo Finance
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/CNY=X?range=1d&interval=1d`;
     let response;
