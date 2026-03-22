@@ -37,6 +37,8 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
     type: AssetType.QUANT_FUND,
     buyAmount: '', 
     buyNav: '',    
+    buyQuantity: '',
+    inputMethod: 'amount_nav' as 'amount_nav' | 'price_quantity',
     currency: 'CNY' as 'CNY' | 'USD',
   });
 
@@ -91,10 +93,16 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
     setIsProcessing(true);
     const cleanCode = formData.code.replace(/^(sh|sz|of)/i, '').trim();
     
-    // Logic Change: Calculate Quantity from Amount / NAV
-    const amount = parseFloat(formData.buyAmount);
+    // Logic Change: Calculate Quantity from Amount / NAV or use direct quantity
+    let quantity = 0;
     const nav = parseFloat(formData.buyNav);
-    const quantity = (amount > 0 && nav > 0) ? amount / nav : 0;
+    
+    if (formData.inputMethod === 'amount_nav') {
+      const amount = parseFloat(formData.buyAmount);
+      quantity = (amount > 0 && nav > 0) ? amount / nav : 0;
+    } else {
+      quantity = parseFloat(formData.buyQuantity);
+    }
 
     const rawAsset = {
       name: formData.name || cleanCode,
@@ -105,8 +113,8 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
       currency: formData.currency,
     };
     
-    if (quantity <= 0) {
-        alert("请输入有效的买入金额和净值");
+    if (quantity <= 0 || isNaN(quantity) || nav <= 0 || isNaN(nav)) {
+        alert("请输入有效的买入数据");
         setIsProcessing(false);
         return;
     }
@@ -233,29 +241,77 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">买入金额</label>
-                  <div className="flex">
-                    <select 
-                      value={formData.currency} 
-                      onChange={e => setFormData({...formData, currency: e.target.value as 'CNY' | 'USD'})} 
-                      className="px-3 py-2 border border-gray-300 border-r-0 rounded-l-lg bg-gray-50 text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
-                    >
-                      <option value="CNY">CNY</option>
-                      <option value="USD">USD</option>
-                    </select>
-                    <input required type="number" step="any" value={formData.buyAmount} onChange={e => setFormData({...formData, buyAmount: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="10000.00"/>
+
+              {/* Input Method Toggle */}
+              <div className="flex bg-gray-100 p-1 rounded-lg">
+                <button
+                  type="button"
+                  className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${formData.inputMethod === 'amount_nav' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  onClick={() => setFormData({...formData, inputMethod: 'amount_nav'})}
+                >
+                  按金额录入
+                </button>
+                <button
+                  type="button"
+                  className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${formData.inputMethod === 'price_quantity' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  onClick={() => setFormData({...formData, inputMethod: 'price_quantity'})}
+                >
+                  按数量录入
+                </button>
+              </div>
+
+              {formData.inputMethod === 'amount_nav' ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">买入金额</label>
+                    <div className="flex">
+                      <select 
+                        value={formData.currency} 
+                        onChange={e => setFormData({...formData, currency: e.target.value as 'CNY' | 'USD'})} 
+                        className="px-3 py-2 border border-gray-300 border-r-0 rounded-l-lg bg-gray-50 text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      >
+                        <option value="CNY">CNY</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <input required type="number" step="any" value={formData.buyAmount} onChange={e => setFormData({...formData, buyAmount: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="10000.00"/>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">买入净值 (价格)</label>
+                    <input required type="number" step="any" value={formData.buyNav} onChange={e => setFormData({...formData, buyNav: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="1.250"/>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">买入净值 (价格)</label>
-                  <input required type="number" step="any" value={formData.buyNav} onChange={e => setFormData({...formData, buyNav: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="1.250"/>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">买入成本 (单价)</label>
+                    <div className="flex">
+                      <select 
+                        value={formData.currency} 
+                        onChange={e => setFormData({...formData, currency: e.target.value as 'CNY' | 'USD'})} 
+                        className="px-3 py-2 border border-gray-300 border-r-0 rounded-l-lg bg-gray-50 text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      >
+                        <option value="CNY">CNY</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <input required type="number" step="any" value={formData.buyNav} onChange={e => setFormData({...formData, buyNav: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="150.00"/>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">买入数量 (份额)</label>
+                    <input required type="number" step="any" value={formData.buyQuantity} onChange={e => setFormData({...formData, buyQuantity: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="100"/>
+                  </div>
                 </div>
-              </div>
-              {formData.buyAmount && formData.buyNav && (
+              )}
+
+              {formData.inputMethod === 'amount_nav' && formData.buyAmount && formData.buyNav && (
                   <div className="text-xs text-right text-gray-500">
                       自动计算份额: <span className="font-bold text-gray-800">{(parseFloat(formData.buyAmount) / parseFloat(formData.buyNav)).toFixed(4)}</span>
+                  </div>
+              )}
+              {formData.inputMethod === 'price_quantity' && formData.buyQuantity && formData.buyNav && (
+                  <div className="text-xs text-right text-gray-500">
+                      自动计算总金额: <span className="font-bold text-gray-800">{(parseFloat(formData.buyQuantity) * parseFloat(formData.buyNav)).toFixed(2)} {formData.currency}</span>
                   </div>
               )}
               <button type="submit" disabled={isProcessing} className="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 transition font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
