@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, RefreshCcw, TrendingUp, DollarSign, PieChart as PieIcon, Wallet, Coins, Settings, UserCircle, LogOut, Cloud, Calculator, Trash2, BarChart3, Download, Shield, Target, Activity } from 'lucide-react';
 import { Asset, PortfolioSummary, AssetType, TargetStrategy, User, UserCloudData, SettlementConfig } from './types';
 import { INITIAL_ASSETS, DEFAULT_STRATEGY, DEFAULT_SETTLEMENT_CONFIG } from './constants';
-import { fetchLatestPrices } from './services/market';
+import { fetchLatestPrices, fetchExchangeRate } from './services/market';
 import { AuthService } from './services/auth';
 import AssetEntry from './components/AssetEntry';
 import StrategyPanel from './components/StrategyPanel';
@@ -23,7 +23,18 @@ const App: React.FC = () => {
   // --- Data State ---
   const [assets, setAssets] = useState<Asset[]>(() => {
     const saved = localStorage.getItem('alphaSeekerAssets');
-    return saved ? JSON.parse(saved) : INITIAL_ASSETS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.map((a: any) => ({
+          ...a,
+          id: a.id || Date.now().toString() + Math.random().toString(36).substr(2, 5)
+        }));
+      } catch (e) {
+        console.error("Failed to parse assets from local storage", e);
+      }
+    }
+    return INITIAL_ASSETS;
   });
   
   const [cashBalance, setCashBalance] = useState<number>(() => {
@@ -57,10 +68,12 @@ const App: React.FC = () => {
   const [sellingAsset, setSellingAsset] = useState<Asset | null>(null);
   
   const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number>(7.2);
 
   // --- Effects ---
 
   useEffect(() => {
+    fetchExchangeRate().then(rate => setExchangeRate(rate));
     const unsubscribe = AuthService.onAuthStateChange(async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -72,7 +85,12 @@ const App: React.FC = () => {
             // but for safety and consistency with handleLoginSuccess, we can just load it
             // if local storage is empty or older. 
             // However, to keep it simple and fix the sync issue:
-            if (cloudData.assets) setAssets(cloudData.assets);
+            if (cloudData.assets) {
+              setAssets(cloudData.assets.map((a: any) => ({
+                ...a,
+                id: a.id || Date.now().toString() + Math.random().toString(36).substr(2, 5)
+              })));
+            }
             if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
             if (typeof cloudData.realizedLoss === 'number') setRealizedLoss(cloudData.realizedLoss);
             if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
@@ -124,7 +142,12 @@ const App: React.FC = () => {
   const handleLoginSuccess = async (loggedInUser: User, cloudData: UserCloudData | null) => {
     if (cloudData) {
       if (confirm('登录成功！检测到云端存档，是否加载并覆盖当前页面数据？')) {
-        if (cloudData.assets) setAssets(cloudData.assets);
+        if (cloudData.assets) {
+          setAssets(cloudData.assets.map((a: any) => ({
+            ...a,
+            id: a.id || Date.now().toString() + Math.random().toString(36).substr(2, 5)
+          })));
+        }
         if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
         if (typeof cloudData.realizedLoss === 'number') setRealizedLoss(cloudData.realizedLoss);
         if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
@@ -158,10 +181,11 @@ const App: React.FC = () => {
     };
 
     assets.forEach(asset => {
-      const value = asset.quantity * asset.currentPrice;
+      const rate = asset.currency === 'USD' ? exchangeRate : 1;
+      const value = asset.quantity * asset.currentPrice * rate;
       // Use basePrice (Jan 1st) for YTD return calculation, fallback to costBasis if not available
       const basePrice = asset.basePrice || asset.costBasis;
-      const baseValue = asset.quantity * basePrice;
+      const baseValue = asset.quantity * basePrice * rate;
       
       investValue += value;
       investCost += baseValue;
@@ -282,8 +306,16 @@ const App: React.FC = () => {
   const handleRefreshPrices = async () => {
     setIsUpdatingPrices(true);
     try {
-      const results = await fetchLatestPrices(assets);
-      setAssets(assets.map(a => {
+      // Capture current assets to fetch prices for
+      const assetsToFetch = assets;
+      const [results, rate] = await Promise.all([
+        fetchLatestPrices(assetsToFetch),
+        fetchExchangeRate()
+      ]);
+      setExchangeRate(rate);
+      
+      // Use functional update to avoid overwriting deletions that happened during fetch
+      setAssets(prevAssets => prevAssets.map(a => {
         const result = results[a.id];
         return {
           ...a,
@@ -302,7 +334,7 @@ const App: React.FC = () => {
 
   const handleDeleteAsset = (id: string) => {
     if(confirm('确定要删除这项资产吗?')) {
-      setAssets(assets.filter(a => a.id !== id));
+      setAssets(prev => prev.filter(a => a.id !== id));
     }
   };
 
@@ -610,9 +642,16 @@ const App: React.FC = () => {
                    </tr>
                 )}
                 {assets.map(asset => {
-                  const marketVal = asset.quantity * asset.currentPrice;
-                  const totalCost = asset.quantity * asset.costBasis;
+                  const rate = asset.currency === 'USD' ? exchangeRate : 1;
+                  const marketVal = asset.quantity * asset.currentPrice * rate;
+                  const totalCost = asset.quantity * asset.costBasis * rate;
+                  
+                  const marketValUSD = asset.currency === 'USD' ? asset.quantity * asset.currentPrice : null;
+                  const totalCostUSD = asset.currency === 'USD' ? asset.quantity * asset.costBasis : null;
+                  
                   const gain = marketVal - totalCost;
+                  const gainUSD = asset.currency === 'USD' ? marketValUSD! - totalCostUSD! : null;
+                  
                   const gainPct = totalCost !== 0 ? (gain / totalCost) * 100 : 0;
                   const portfolioPct = summary.totalValue > 0 ? (marketVal / summary.totalValue) * 100 : 0;
                   return (
@@ -627,10 +666,17 @@ const App: React.FC = () => {
                       <td className="px-6 py-4 text-right">
                          <span className="text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded text-gray-700">{portfolioPct.toFixed(2)}%</span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-gray-600">{fmtMoney(totalCost)}</td>
-                      <td className="px-6 py-4 text-right font-bold text-gray-900">{fmtMoney(marketVal)}</td>
+                      <td className="px-6 py-4 text-right font-mono text-gray-600">
+                        {fmtMoney(totalCost)}
+                        {asset.currency === 'USD' && <div className="text-[10px] text-gray-400 mt-0.5">${totalCostUSD?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-gray-900">
+                        {fmtMoney(marketVal)}
+                        {asset.currency === 'USD' && <div className="text-[10px] text-gray-400 mt-0.5 font-normal">${marketValUSD?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
+                      </td>
                       <td className={`px-6 py-4 text-right font-medium ${gain >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {gain >= 0 ? '+' : ''}{fmtMoney(gain)} <br/>
+                        {asset.currency === 'USD' && <span className="text-[10px] opacity-70 block mt-0.5">{gainUSD! >= 0 ? '+' : ''}${gainUSD?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
                         <span className={`text-[10px] ${gain >=0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'} px-1 py-0.5 rounded mt-0.5 inline-block`}>{gainPct.toFixed(2)}%</span>
                       </td>
                       <td className="px-6 py-4 text-center">

@@ -35,8 +35,9 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
     name: '',
     code: '',
     type: AssetType.QUANT_FUND,
-    buyAmount: '', // New: Buying Amount (Money)
-    buyNav: '',    // New: Buying NAV (Price)
+    buyAmount: '', 
+    buyNav: '',    
+    currency: 'CNY' as 'CNY' | 'USD',
   });
 
   // Batch Entry State
@@ -63,6 +64,7 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
   const resolveAsset = async (baseAsset: any) => {
     let fetchedPrice = 0;
     let fetchedBasePrice = 0;
+    let fetchedCurrency = baseAsset.currency || 'CNY';
     if (baseAsset.code) {
       try {
         const details = await lookupAssetDetails(baseAsset.code);
@@ -70,6 +72,7 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
           baseAsset.name = details.name;
           fetchedPrice = details.price;
           fetchedBasePrice = details.basePrice || 0;
+          if (details.currency) fetchedCurrency = details.currency;
         }
       } catch (e) {
         console.warn("Look up failed", e);
@@ -78,7 +81,8 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
     return {
       ...baseAsset,
       currentPrice: fetchedPrice > 0 ? fetchedPrice : baseAsset.costBasis,
-      basePrice: fetchedBasePrice > 0 ? fetchedBasePrice : baseAsset.costBasis
+      basePrice: fetchedBasePrice > 0 ? fetchedBasePrice : baseAsset.costBasis,
+      currency: fetchedCurrency
     };
   };
 
@@ -98,6 +102,7 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
       type: formData.type,
       quantity: quantity,
       costBasis: nav, // Cost Basis is the Buy Price (NAV)
+      currency: formData.currency,
     };
     
     if (quantity <= 0) {
@@ -230,8 +235,18 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">买入金额 (CNY)</label>
-                  <input required type="number" step="any" value={formData.buyAmount} onChange={e => setFormData({...formData, buyAmount: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="10000.00"/>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">买入金额</label>
+                  <div className="flex">
+                    <select 
+                      value={formData.currency} 
+                      onChange={e => setFormData({...formData, currency: e.target.value as 'CNY' | 'USD'})} 
+                      className="px-3 py-2 border border-gray-300 border-r-0 rounded-l-lg bg-gray-50 text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    >
+                      <option value="CNY">CNY</option>
+                      <option value="USD">USD</option>
+                    </select>
+                    <input required type="number" step="any" value={formData.buyAmount} onChange={e => setFormData({...formData, buyAmount: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="10000.00"/>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">买入净值 (价格)</label>

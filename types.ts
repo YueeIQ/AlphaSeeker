@@ -17,6 +17,7 @@ export interface Asset {
   costBasis: number; // Average purchase price
   currentPrice: number; // Current market price
   basePrice?: number; // Price as of Jan 1st for YTD calculation
+  currency?: 'CNY' | 'USD';
   lastUpdated: string;
 }
 

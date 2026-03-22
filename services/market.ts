@@ -146,7 +146,43 @@ const fetchFromTiantian = (code: string): Promise<{ name: string; price: number;
   });
 };
 
-export const lookupAssetDetails = async (code: string): Promise<{ name: string; price: number; basePrice?: number } | null> => {
+const fetchUSStock = async (code: string): Promise<{ name: string; price: number; basePrice?: number; currency?: 'CNY' | 'USD' } | null> => {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${code}?range=ytd&interval=1d`;
+    let response;
+    
+    // Try direct fetch first (fastest, but might fail due to CORS in some environments)
+    try {
+      const directUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${code}?range=ytd&interval=1d`;
+      response = await fetch(directUrl);
+    } catch (directError) {
+      // CORS error or network error, fallback to proxy
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url + '&_cb=' + Date.now())}`;
+      response = await fetch(proxyUrl);
+    }
+    
+    if (!response || !response.ok) return null;
+    
+    const data = await response.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) return null;
+    
+    const meta = result.meta;
+    if (!meta || !meta.regularMarketPrice) return null;
+    
+    return {
+      name: meta.shortName || meta.longName || code,
+      price: meta.regularMarketPrice,
+      basePrice: meta.chartPreviousClose || meta.regularMarketPrice,
+      currency: 'USD'
+    };
+  } catch (e) {
+    console.warn(`Failed to fetch US stock ${code}`, e);
+    return null;
+  }
+};
+
+export const lookupAssetDetails = async (code: string): Promise<{ name: string; price: number; basePrice?: number; currency?: 'CNY' | 'USD' } | null> => {
   if (!code) return null;
   
   // Normalize code: Tiantian API expects 6 digits (e.g., 518880). 
@@ -158,41 +194,103 @@ export const lookupAssetDetails = async (code: string): Promise<{ name: string; 
     try {
        const ttData = await fetchFromTiantian(normalizedCode);
        if (ttData && ttData.price > 0) {
-         return { name: ttData.name, price: ttData.price, basePrice: (ttData as any).basePrice };
+         return { name: ttData.name, price: ttData.price, basePrice: (ttData as any).basePrice, currency: 'CNY' };
        }
     } catch (e) {
        console.warn("Tiantian fetch failed", e);
     }
   }
 
-  // 2. Fallback to local mock DB
+  // 2. Try US Stock via Yahoo Finance
+  if (/^[A-Za-z\.\-]+$/.test(normalizedCode)) {
+    try {
+      const usStock = await fetchUSStock(normalizedCode.toUpperCase());
+      if (usStock && usStock.price > 0) {
+        return usStock;
+      }
+    } catch (e) {
+      console.warn("US Stock fetch failed", e);
+    }
+  }
+
+  // 3. Fallback to local mock DB
   const dbEntry = FALLBACK_DB[normalizedCode.toUpperCase()];
   if (dbEntry) {
-    return { name: dbEntry.name, price: dbEntry.price, basePrice: dbEntry.price };
+    return { name: dbEntry.name, price: dbEntry.price, basePrice: dbEntry.price, currency: 'CNY' };
   }
   
   return null; 
 };
 
+export const fetchExchangeRate = async (): Promise<number> => {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/CNY=X?range=1d&interval=1d`;
+    let response;
+    
+    try {
+      const directUrl = `https://query2.finance.yahoo.com/v8/finance/chart/CNY=X?range=1d&interval=1d`;
+      response = await fetch(directUrl);
+    } catch (directError) {
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url + '&_cb=' + Date.now())}`;
+      response = await fetch(proxyUrl);
+    }
+    
+    if (!response || !response.ok) return 7.2; // Fallback default
+    
+    const data = await response.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) return 7.2;
+    
+    const meta = result.meta;
+    if (!meta || !meta.regularMarketPrice) return 7.2;
+    
+    return meta.regularMarketPrice;
+  } catch (e) {
+    console.warn(`Failed to fetch exchange rate`, e);
+    return 7.2;
+  }
+};
+
 export const fetchLatestPrices = async (assets: Asset[]): Promise<Record<string, { price: number; basePrice?: number }>> => {
   const newPrices: Record<string, { price: number; basePrice?: number }> = {};
 
-  // Process sequentially to respect the JSONP queue limitations
-  for (const asset of assets) {
-    if (!asset.code) continue;
+  const cnAssets = assets.filter(a => a.code && /^\d{6}$/.test(a.code.replace(/^(sh|sz|of)/i, '').trim()));
+  const usAssets = assets.filter(a => a.code && /^[A-Za-z\.\-]+$/.test(a.code.trim()));
+  const otherAssets = assets.filter(a => a.code && !cnAssets.includes(a) && !usAssets.includes(a));
 
+  // Fetch US assets in parallel (they use standard fetch with promises)
+  const usPromises = usAssets.map(async (asset) => {
+    try {
+      const liveData = await lookupAssetDetails(asset.code);
+      if (liveData && liveData.price > 0) {
+        newPrices[asset.id] = { price: liveData.price, basePrice: liveData.basePrice };
+      } else {
+        newPrices[asset.id] = { price: asset.currentPrice, basePrice: asset.basePrice };
+      }
+    } catch (e) {
+      newPrices[asset.id] = { price: asset.currentPrice, basePrice: asset.basePrice };
+    }
+  });
+
+  // Process CN and other assets sequentially to respect the JSONP queue limitations
+  for (const asset of [...cnAssets, ...otherAssets]) {
     // Small delay between requests to be polite to the API
     await new Promise(r => setTimeout(r, 100));
 
-    const liveData = await lookupAssetDetails(asset.code);
-    
-    if (liveData && liveData.price > 0) {
-      newPrices[asset.id] = { price: liveData.price, basePrice: liveData.basePrice };
-    } else {
-       // Keep existing price if fetch fails
-       newPrices[asset.id] = { price: asset.currentPrice, basePrice: asset.basePrice };
+    try {
+      const liveData = await lookupAssetDetails(asset.code);
+      if (liveData && liveData.price > 0) {
+        newPrices[asset.id] = { price: liveData.price, basePrice: liveData.basePrice };
+      } else {
+        newPrices[asset.id] = { price: asset.currentPrice, basePrice: asset.basePrice };
+      }
+    } catch (e) {
+      newPrices[asset.id] = { price: asset.currentPrice, basePrice: asset.basePrice };
     }
   }
+
+  // Wait for US fetches to complete
+  await Promise.all(usPromises);
 
   return newPrices;
 };
