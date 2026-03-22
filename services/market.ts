@@ -93,20 +93,36 @@ const fetchFromTiantian = (code: string): Promise<{ name: string; price: number;
             const trend = (window as any).Data_netWorthTrend;
 
             if (name && Array.isArray(trend) && trend.length > 0) {
-              // Take the last item in the array, which represents the latest official NAV
+              // Latest official NAV
               const latest = trend[trend.length - 1];
               const price = parseFloat(latest.y);
+
+              // Find Jan 1st price for YTD calculation
+              const currentYear = new Date().getFullYear();
+              const jan1st = new Date(currentYear, 0, 1).getTime();
+              
+              // Find the entry closest to Jan 1st (but not after)
+              let basePrice = price; // Default to current if not found
+              for (let i = 0; i < trend.length; i++) {
+                if (trend[i].x >= jan1st) {
+                  // Use the first entry of the year, or the one right before it if it's the very first
+                  basePrice = parseFloat(trend[i].y);
+                  break;
+                }
+                // Keep track of the last entry before Jan 1st as a fallback
+                basePrice = parseFloat(trend[i].y);
+              }
 
               if (!isNaN(price) && price > 0) {
                  complete({
                    name: name,
                    price: price,
-                   isEstimate: false // This comes from historical official data, not realtime estimate
+                   basePrice: basePrice,
+                   isEstimate: false
                  });
                  return;
               }
             }
-            // If data structure is invalid
             complete(null);
           } catch (err) {
             console.error("Error parsing pingzhongdata", err);
@@ -130,7 +146,7 @@ const fetchFromTiantian = (code: string): Promise<{ name: string; price: number;
   });
 };
 
-export const lookupAssetDetails = async (code: string): Promise<{ name: string; price: number } | null> => {
+export const lookupAssetDetails = async (code: string): Promise<{ name: string; price: number; basePrice?: number } | null> => {
   if (!code) return null;
   
   // Normalize code: Tiantian API expects 6 digits (e.g., 518880). 
@@ -142,7 +158,7 @@ export const lookupAssetDetails = async (code: string): Promise<{ name: string; 
     try {
        const ttData = await fetchFromTiantian(normalizedCode);
        if (ttData && ttData.price > 0) {
-         return { name: ttData.name, price: ttData.price };
+         return { name: ttData.name, price: ttData.price, basePrice: (ttData as any).basePrice };
        }
     } catch (e) {
        console.warn("Tiantian fetch failed", e);
@@ -152,14 +168,14 @@ export const lookupAssetDetails = async (code: string): Promise<{ name: string; 
   // 2. Fallback to local mock DB
   const dbEntry = FALLBACK_DB[normalizedCode.toUpperCase()];
   if (dbEntry) {
-    return { name: dbEntry.name, price: dbEntry.price };
+    return { name: dbEntry.name, price: dbEntry.price, basePrice: dbEntry.price };
   }
   
   return null; 
 };
 
-export const fetchLatestPrices = async (assets: Asset[]): Promise<Record<string, number>> => {
-  const newPrices: Record<string, number> = {};
+export const fetchLatestPrices = async (assets: Asset[]): Promise<Record<string, { price: number; basePrice?: number }>> => {
+  const newPrices: Record<string, { price: number; basePrice?: number }> = {};
 
   // Process sequentially to respect the JSONP queue limitations
   for (const asset of assets) {
@@ -171,10 +187,10 @@ export const fetchLatestPrices = async (assets: Asset[]): Promise<Record<string,
     const liveData = await lookupAssetDetails(asset.code);
     
     if (liveData && liveData.price > 0) {
-      newPrices[asset.id] = liveData.price;
+      newPrices[asset.id] = { price: liveData.price, basePrice: liveData.basePrice };
     } else {
        // Keep existing price if fetch fails
-       newPrices[asset.id] = asset.currentPrice;
+       newPrices[asset.id] = { price: asset.currentPrice, basePrice: asset.basePrice };
     }
   }
 

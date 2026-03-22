@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { PortfolioSummary, AssetType } from '../types';
+import { PortfolioSummary, AssetType, TargetStrategy } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ReferenceLine, CartesianGrid } from 'recharts';
 
 interface PortfolioChartProps {
   summary: PortfolioSummary;
+  strategy: TargetStrategy;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -41,7 +42,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const PortfolioChart: React.FC<PortfolioChartProps> = ({ summary }) => {
+const PortfolioChart: React.FC<PortfolioChartProps> = ({ summary, strategy }) => {
   if (!summary || !summary.typeDetails) {
     return <div className="h-full flex items-center justify-center text-gray-400 text-xs">加载中...</div>;
   }
@@ -50,7 +51,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ summary }) => {
   const data = (Object.entries(summary.typeDetails) as [string, { value: number; cost: number; return: number; returnPercent: number }][])
     .filter(([type, detail]) => type !== AssetType.CASH && (detail.value > 0 || Math.abs(detail.return) > 1)) 
     .map(([type, detail]) => ({
-      name: type,
+      name: strategy.customNames?.[type as AssetType] || type,
       profit: detail.return,
       value: detail.value,
       cost: detail.cost,

@@ -11,6 +11,7 @@ interface StrategyConfigProps {
 const StrategyConfig: React.FC<StrategyConfigProps> = ({ currentStrategy, onSave, onClose }) => {
   const [allocations, setAllocations] = useState({ ...currentStrategy.allocations });
   const [maxDeviation, setMaxDeviation] = useState(currentStrategy.maxDeviation);
+  const [customNames, setCustomNames] = useState<Partial<Record<AssetType, string>>>({ ...(currentStrategy.customNames || {}) });
 
   // Fix: Explicitly type accumulator to avoid 'unknown' type inference error
   const total = Object.values(allocations).reduce((sum: number, val) => sum + (val as number), 0);
@@ -23,10 +24,18 @@ const StrategyConfig: React.FC<StrategyConfigProps> = ({ currentStrategy, onSave
     }));
   };
 
+  const handleCustomNameChange = (type: AssetType, val: string) => {
+    setCustomNames(prev => ({
+      ...prev,
+      [type]: val
+    }));
+  };
+
   const handleSave = () => {
     onSave({
       allocations,
-      maxDeviation
+      maxDeviation,
+      customNames
     });
     onClose();
   };
@@ -49,10 +58,18 @@ const StrategyConfig: React.FC<StrategyConfigProps> = ({ currentStrategy, onSave
 
           <div className="space-y-5">
             {Object.values(AssetType).map(type => (
-              <div key={type}>
-                <div className="flex justify-between mb-1">
-                  <label className="text-sm font-medium text-gray-700">{type}</label>
-                  <span className="text-sm text-gray-500">{allocations[type]}%</span>
+              <div key={type} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="text"
+                      value={customNames[type] !== undefined ? customNames[type] : type}
+                      onChange={e => handleCustomNameChange(type, e.target.value)}
+                      className="font-bold text-gray-800 bg-transparent border-b border-dashed border-gray-300 focus:border-indigo-500 outline-none w-32 pb-0.5"
+                      placeholder={type}
+                    />
+                  </div>
+                  <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">{allocations[type]}%</span>
                 </div>
                 <input
                   type="range"
@@ -63,14 +80,6 @@ const StrategyConfig: React.FC<StrategyConfigProps> = ({ currentStrategy, onSave
                   onChange={e => handleAllocationChange(type, e.target.value)}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
-                <div className="mt-1">
-                   <input 
-                     type="number" 
-                     className="w-full text-xs p-1 border rounded" 
-                     value={allocations[type]} 
-                     onChange={e => handleAllocationChange(type, e.target.value)}
-                   />
-                </div>
               </div>
             ))}
 

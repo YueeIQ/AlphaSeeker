@@ -16,6 +16,7 @@ export interface Asset {
   quantity: number;
   costBasis: number; // Average purchase price
   currentPrice: number; // Current market price
+  basePrice?: number; // Price as of Jan 1st for YTD calculation
   lastUpdated: string;
 }
 
@@ -34,6 +35,7 @@ export interface PortfolioSummary {
 export interface TargetStrategy {
   allocations: Record<AssetType, number>; // Target %
   maxDeviation: number; // Threshold for Red light (e.g., 20% relative deviation)
+  customNames?: Partial<Record<AssetType, string>>; // Custom names for asset categories
 }
 
 export interface SettlementConfig {

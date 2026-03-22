@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { AssetType, Asset } from '../types';
+import { AssetType, Asset, TargetStrategy } from '../types';
 import { Plus, Upload, X, Loader2, Coins, TrendingDown, FileText, LayoutGrid, Edit2, RotateCcw } from 'lucide-react';
 import { lookupAssetDetails } from '../services/market';
 
@@ -12,6 +12,7 @@ interface AssetEntryProps {
   currentCash: number;
   currentLoss: number; // New: Display current loss
   onClose: () => void;
+  strategy: TargetStrategy;
 }
 
 type EntryMode = 'single' | 'batch' | 'cash' | 'loss';
@@ -23,7 +24,8 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
   onSetLoss,
   currentCash, 
   currentLoss,
-  onClose 
+  onClose,
+  strategy
 }) => {
   const [mode, setMode] = useState<EntryMode>('single');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -60,12 +62,14 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
 
   const resolveAsset = async (baseAsset: any) => {
     let fetchedPrice = 0;
+    let fetchedBasePrice = 0;
     if (baseAsset.code) {
       try {
         const details = await lookupAssetDetails(baseAsset.code);
         if (details) {
           baseAsset.name = details.name;
           fetchedPrice = details.price;
+          fetchedBasePrice = details.basePrice || 0;
         }
       } catch (e) {
         console.warn("Look up failed", e);
@@ -73,7 +77,8 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
     }
     return {
       ...baseAsset,
-      currentPrice: fetchedPrice > 0 ? fetchedPrice : baseAsset.costBasis
+      currentPrice: fetchedPrice > 0 ? fetchedPrice : baseAsset.costBasis,
+      basePrice: fetchedBasePrice > 0 ? fetchedBasePrice : baseAsset.costBasis
     };
   };
 
@@ -219,7 +224,7 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
                 <label className="block text-sm font-medium text-gray-700 mb-1">资产类别</label>
                 <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as AssetType})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
                   {Object.values(AssetType).filter(t => t !== AssetType.CASH).map(t => (
-                    <option key={t} value={t}>{t}</option>
+                    <option key={t} value={t}>{strategy.customNames?.[t] || t}</option>
                   ))}
                 </select>
               </div>

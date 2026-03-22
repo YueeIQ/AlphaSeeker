@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, RefreshCcw, TrendingUp, DollarSign, PieChart as PieIcon, Wallet, Coins, Settings, UserCircle, LogOut, Cloud, Calculator, Trash2, BarChart3, Download } from 'lucide-react';
+import { Plus, RefreshCcw, TrendingUp, DollarSign, PieChart as PieIcon, Wallet, Coins, Settings, UserCircle, LogOut, Cloud, Calculator, Trash2, BarChart3, Download, Shield, Target, Activity } from 'lucide-react';
 import { Asset, PortfolioSummary, AssetType, TargetStrategy, User, UserCloudData, SettlementConfig } from './types';
 import { INITIAL_ASSETS, DEFAULT_STRATEGY, DEFAULT_SETTLEMENT_CONFIG } from './constants';
 import { fetchLatestPrices } from './services/market';
@@ -159,15 +159,18 @@ const App: React.FC = () => {
 
     assets.forEach(asset => {
       const value = asset.quantity * asset.currentPrice;
-      const cost = asset.quantity * asset.costBasis;
+      // Use basePrice (Jan 1st) for YTD return calculation, fallback to costBasis if not available
+      const basePrice = asset.basePrice || asset.costBasis;
+      const baseValue = asset.quantity * basePrice;
+      
       investValue += value;
-      investCost += cost;
+      investCost += baseValue;
       typeValue[asset.type] = (typeValue[asset.type] || 0) + value;
 
       // Accumulate for detailed view
       if (typeDetails[asset.type]) {
           typeDetails[asset.type].value += value;
-          typeDetails[asset.type].cost += cost;
+          typeDetails[asset.type].cost += baseValue;
       }
     });
 
@@ -279,12 +282,16 @@ const App: React.FC = () => {
   const handleRefreshPrices = async () => {
     setIsUpdatingPrices(true);
     try {
-      const newPrices = await fetchLatestPrices(assets);
-      setAssets(assets.map(a => ({
-        ...a,
-        currentPrice: newPrices[a.id] || a.currentPrice,
-        lastUpdated: new Date().toISOString()
-      })));
+      const results = await fetchLatestPrices(assets);
+      setAssets(assets.map(a => {
+        const result = results[a.id];
+        return {
+          ...a,
+          currentPrice: result?.price || a.currentPrice,
+          basePrice: result?.basePrice || a.basePrice,
+          lastUpdated: new Date().toISOString()
+        };
+      }));
     } catch (e) {
       console.error("Failed to update prices", e);
       alert("更新净值时部分数据获取失败。");
@@ -408,6 +415,47 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         
+        {/* Investment Memo Section */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl shadow-xl overflow-hidden border border-indigo-900/50">
+          <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
+            <div className="bg-indigo-500/20 p-2 rounded-lg">
+              <Shield className="text-indigo-400" size={20} />
+            </div>
+            <h2 className="text-lg font-bold text-white tracking-wide">AlphaSeeker 投资纪律</h2>
+            <div className="ml-auto text-xs font-medium text-indigo-300/60 uppercase tracking-widest">Investment Memo</div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10">
+            <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
+              <div className="flex items-center gap-2 text-indigo-400">
+                <Target size={18} />
+                <span className="font-bold text-sm tracking-wider">择时与研究</span>
+              </div>
+              <p className="text-sm text-indigo-100/80 leading-relaxed">在合理的价格，购买优质的资产，投资者95%以上的时间应该是研究、调查、等待。把握1-2次的核心机会就足够。</p>
+            </div>
+            <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <TrendingUp size={18} />
+                <span className="font-bold text-sm tracking-wider">复利与持有</span>
+              </div>
+              <p className="text-sm text-indigo-100/80 leading-relaxed">靠复利的力量。只要企业基本面没有变化，就没有理由卖出。真正的财富积累靠的是十年、二十年的持有。</p>
+            </div>
+            <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
+              <div className="flex items-center gap-2 text-amber-400">
+                <Activity size={18} />
+                <span className="font-bold text-sm tracking-wider">心态与节奏</span>
+              </div>
+              <p className="text-sm text-indigo-100/80 leading-relaxed">慢就是快，稳就是赢，不追求急财、快钱。</p>
+            </div>
+            <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
+              <div className="flex items-center gap-2 text-blue-400">
+                <Wallet size={18} />
+                <span className="font-bold text-sm tracking-wider">现金管理</span>
+              </div>
+              <p className="text-sm text-indigo-100/80 leading-relaxed">节俭保有现金。</p>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition">
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -478,7 +526,7 @@ const App: React.FC = () => {
              </div>
              <div className="flex-1 -ml-4">
                {summary.totalValue > 0 ? (
-                 <PortfolioChart summary={summary} />
+                 <PortfolioChart summary={summary} strategy={strategy} />
                ) : (
                  <div className="flex items-center justify-center h-full text-gray-300 text-sm">暂无数据</div>
                )}
@@ -560,7 +608,7 @@ const App: React.FC = () => {
                         {asset.code && <div className="text-xs text-gray-400 font-mono mt-0.5">{asset.code}</div>}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="bg-white text-gray-600 px-2.5 py-1 rounded-full text-xs border border-gray-200 font-medium">{asset.type}</span>
+                        <span className="bg-white text-gray-600 px-2.5 py-1 rounded-full text-xs border border-gray-200 font-medium">{strategy.customNames?.[asset.type] || asset.type}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
                          <span className="text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded text-gray-700">{portfolioPct.toFixed(2)}%</span>
@@ -606,6 +654,7 @@ const App: React.FC = () => {
           currentCash={cashBalance}
           currentLoss={realizedLoss}
           onClose={() => setShowAddModal(false)} 
+          strategy={strategy}
         />
       )}
 
