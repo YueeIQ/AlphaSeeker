@@ -114,7 +114,7 @@ const StrategyPanel: React.FC<StrategyPanelProps> = ({ portfolio, assets, strate
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500 font-medium mb-1">年度收益率</div>
+                  <div className="text-xs text-gray-500 font-medium mb-1">累计收益率</div>
                   <div className={`text-lg font-bold font-mono ${item.returnPercent >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {item.returnPercent > 0 ? '+' : ''}{item.returnPercent.toFixed(2)}%
                   </div>

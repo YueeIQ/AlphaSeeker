@@ -183,18 +183,17 @@ const App: React.FC = () => {
     assets.forEach(asset => {
       const rate = asset.currency === 'USD' ? exchangeRate : 1;
       const value = asset.quantity * asset.currentPrice * rate;
-      // Use basePrice (Jan 1st) for YTD return calculation, fallback to costBasis if not available
-      const basePrice = asset.basePrice || asset.costBasis;
-      const baseValue = asset.quantity * basePrice * rate;
+      // Use costBasis for cumulative return calculation
+      const costValue = asset.quantity * asset.costBasis * rate;
       
       investValue += value;
-      investCost += baseValue;
+      investCost += costValue;
       typeValue[asset.type] = (typeValue[asset.type] || 0) + value;
 
       // Accumulate for detailed view
       if (typeDetails[asset.type]) {
           typeDetails[asset.type].value += value;
-          typeDetails[asset.type].cost += baseValue;
+          typeDetails[asset.type].cost += costValue;
       }
     });
 
@@ -543,7 +542,7 @@ const App: React.FC = () => {
 
           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
             <div>
-              <p className="text-xs font-medium text-gray-500">总收益率 (今年)</p>
+              <p className="text-xs font-medium text-gray-500">总收益率 (累计)</p>
               <div className="flex items-end gap-2 mt-1">
                 <h2 className={`text-2xl font-bold ${summary.totalReturnPercent >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {fmtPct(summary.totalReturnPercent)}
