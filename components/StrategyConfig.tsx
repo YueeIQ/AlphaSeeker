@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TargetStrategy, AssetType } from '../types';
-import { X, Save, AlertCircle } from 'lucide-react';
+import { X, Save, AlertCircle, Edit2 } from 'lucide-react';
 
 interface StrategyConfigProps {
   currentStrategy: TargetStrategy;
@@ -60,14 +60,16 @@ const StrategyConfig: React.FC<StrategyConfigProps> = ({ currentStrategy, onSave
             {Object.values(AssetType).map(type => (
               <div key={type} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <div className="flex justify-between items-center mb-3">
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-2 flex-1 group">
                     <input
                       type="text"
                       value={customNames[type] !== undefined ? customNames[type] : type}
                       onChange={e => handleCustomNameChange(type, e.target.value)}
-                      className="font-bold text-gray-800 bg-transparent border-b border-dashed border-gray-300 focus:border-indigo-500 outline-none w-32 pb-0.5"
+                      className="font-bold text-gray-800 bg-white border border-gray-200 rounded-md px-2 py-1 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none w-32 transition-all hover:border-gray-300"
                       placeholder={type}
+                      title="点击修改资产类别名称"
                     />
+                    <Edit2 size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                   <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">{allocations[type]}%</span>
                 </div>

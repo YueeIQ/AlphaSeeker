@@ -424,6 +424,20 @@ const App: React.FC = () => {
             <h2 className="text-lg font-bold text-white tracking-wide">AlphaSeeker 投资纪律</h2>
             <div className="ml-auto text-xs font-medium text-indigo-300/60 uppercase tracking-widest">Investment Memo</div>
           </div>
+          <div className="px-6 py-4 bg-white/5 border-b border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex justify-center">
+              <span className="w-full max-w-[140px] py-1.5 text-center rounded-full bg-indigo-500/20 text-indigo-300 text-sm font-bold tracking-widest border border-indigo-500/30 shadow-sm">择时</span>
+            </div>
+            <div className="flex justify-center">
+              <span className="w-full max-w-[140px] py-1.5 text-center rounded-full bg-emerald-500/20 text-emerald-300 text-sm font-bold tracking-widest border border-emerald-500/30 shadow-sm">耐心</span>
+            </div>
+            <div className="flex justify-center">
+              <span className="w-full max-w-[140px] py-1.5 text-center rounded-full bg-amber-500/20 text-amber-300 text-sm font-bold tracking-widest border border-amber-500/30 shadow-sm">复利</span>
+            </div>
+            <div className="flex justify-center">
+              <span className="w-full max-w-[140px] py-1.5 text-center rounded-full bg-blue-500/20 text-blue-300 text-sm font-bold tracking-widest border border-blue-500/30 shadow-sm">求慢</span>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10">
             <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
               <div className="flex items-center gap-2 text-indigo-400">
@@ -456,24 +470,24 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition">
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <DollarSign size={100} />
+              <DollarSign size={80} />
             </div>
-            <div className="mb-4">
-              <p className="text-sm font-medium text-gray-500">总资产净值 (CNY)</p>
-              <h2 className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">{fmtMoney(summary.totalValue)}</h2>
+            <div className="mb-3">
+              <p className="text-xs font-medium text-gray-500">总资产净值 (CNY)</p>
+              <h2 className="text-2xl font-bold text-gray-900 mt-1 tracking-tight">{fmtMoney(summary.totalValue)}</h2>
             </div>
-            <div className="pt-4 border-t border-gray-50">
+            <div className="pt-3 border-t border-gray-50">
                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">累计盈亏</span>
-                  <span className={`text-lg font-bold ${summary.totalReturn >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  <span className="text-xs text-gray-500">累计盈亏</span>
+                  <span className={`text-base font-bold ${summary.totalReturn >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {summary.totalReturn >= 0 ? '+' : ''}{fmtMoney(summary.totalReturn)}
                   </span>
                </div>
                {(realizedLoss > 0 || realizedProfit > 0) && (
-                 <div className="mt-2 space-y-1">
+                 <div className="mt-1.5 space-y-1">
                    {realizedProfit > 0 && (
                       <div className="flex justify-between items-center text-[10px]">
                         <span className="text-gray-400">已止盈落袋</span>
@@ -489,39 +503,39 @@ const App: React.FC = () => {
                  </div>
                )}
                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-50">
-                  <span className="text-xs text-gray-400">可投入现金</span>
-                  <span className="text-sm font-medium text-gray-600">{fmtMoney(investableCash)}</span>
+                  <span className="text-[10px] text-gray-400">可投入现金</span>
+                  <span className="text-xs font-medium text-gray-600">{fmtMoney(investableCash)}</span>
                </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
             <div>
-              <p className="text-sm font-medium text-gray-500">总收益率 (今年)</p>
-              <div className="flex items-end gap-2 mt-2">
-                <h2 className={`text-3xl font-bold ${summary.totalReturnPercent >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+              <p className="text-xs font-medium text-gray-500">总收益率 (今年)</p>
+              <div className="flex items-end gap-2 mt-1">
+                <h2 className={`text-2xl font-bold ${summary.totalReturnPercent >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {fmtPct(summary.totalReturnPercent)}
                 </h2>
               </div>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-2.5 mt-4 overflow-hidden relative">
+            <div className="w-full bg-gray-100 rounded-full h-2 mt-3 overflow-hidden relative">
               <div className="absolute top-0 bottom-0 w-0.5 bg-gray-400 z-10" style={{ left: '50%' }}></div>
-              <div className={`h-2.5 rounded-full ${summary.totalReturnPercent >= 0 ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(Math.abs(summary.totalReturnPercent) / 0.3, 100)}%` }}></div>
+              <div className={`h-2 rounded-full ${summary.totalReturnPercent >= 0 ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(Math.abs(summary.totalReturnPercent) / 0.3, 100)}%` }}></div>
             </div>
-            <div className="flex justify-between mt-2 text-xs text-gray-400">
+            <div className="flex justify-between mt-2 text-[10px] text-gray-400">
                <span>当前</span>
                <span>目标: 15.0%</span>
             </div>
           </div>
 
-           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition">
+           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition">
              <div className="flex justify-between items-start mb-2">
                <div>
-                  <p className="text-sm font-medium text-gray-500">资产盈利分布</p>
-                  <p className="text-xs text-gray-400 mt-0.5">各类资产绝对收益贡献排行</p>
+                  <p className="text-xs font-medium text-gray-500">资产盈利分布</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">各类资产绝对收益贡献排行</p>
                </div>
-               <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
-                 <BarChart3 size={20} />
+               <div className="bg-indigo-50 p-1.5 rounded-lg text-indigo-600">
+                 <BarChart3 size={16} />
                </div>
              </div>
              <div className="flex-1 -ml-4">
@@ -583,7 +597,7 @@ const App: React.FC = () => {
                 {cashBalance > 0 && (
                    <tr className="bg-green-50/10 hover:bg-green-50/20 transition">
                       <td className="px-6 py-4 font-medium text-gray-900">人民币现金</td>
-                      <td className="px-6 py-4"><span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-medium">{AssetType.CASH}</span></td>
+                      <td className="px-6 py-4"><span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-medium">{strategy.customNames?.[AssetType.CASH] || AssetType.CASH}</span></td>
                       <td className="px-6 py-4 text-right font-medium">
                         {summary.totalValue > 0 ? ((cashBalance / summary.totalValue) * 100).toFixed(2) : 0}%
                       </td>
