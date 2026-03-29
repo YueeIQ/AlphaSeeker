@@ -28,79 +28,102 @@ export const AuthService = {
   onAuthStateChange: (callback: (user: User | null) => void) => {
     let currentUser: User | null = null;
 
-    // Listen to Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        currentUser = mapSupabaseUser(session.user);
-        callback(currentUser);
-      } else {
-        // If Supabase logs out, check if Firebase is still logged in
-        if (!firebaseAuth.currentUser) {
-          currentUser = null;
-          callback(null);
-        }
-      }
-    });
-
-    // Listen to Firebase
-    const unsubscribeFirebase = onAuthStateChanged(firebaseAuth, (user) => {
-      if (user) {
-        currentUser = mapFirebaseUser(user);
-        callback(currentUser);
-      } else {
-        // If Firebase logs out, check if Supabase is still logged in
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (!session?.user) {
+    // Listen to Firebase (PRIMARY)
+    let unsubscribeFirebase = () => {};
+    if (firebaseAuth) {
+      unsubscribeFirebase = onAuthStateChanged(firebaseAuth, (user) => {
+        if (user) {
+          currentUser = mapFirebaseUser(user);
+          callback(currentUser);
+        } else {
+          // If Firebase logs out, check if Supabase is still logged in
+          try {
+            supabase.auth.getSession().then(({ data: { session } }) => {
+              if (!session?.user) {
+                currentUser = null;
+                callback(null);
+              }
+            }).catch(() => {
+              currentUser = null;
+              callback(null);
+            });
+          } catch (e) {
             currentUser = null;
             callback(null);
           }
-        });
-      }
-    });
+        }
+      });
+    }
+
+    // Listen to Supabase (FALLBACK)
+    let subscription: any = null;
+    try {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          // Only use Supabase user if Firebase hasn't already logged in
+          if (!firebaseAuth?.currentUser) {
+            currentUser = mapSupabaseUser(session.user);
+            callback(currentUser);
+          }
+        } else {
+          // If Supabase logs out, check if Firebase is still logged in
+          if (!firebaseAuth || !firebaseAuth.currentUser) {
+            currentUser = null;
+            callback(null);
+          }
+        }
+      });
+      subscription = data.subscription;
+    } catch (e) {
+      console.error("Supabase auth listener failed (Project might be expired):", e);
+    }
     
     // Return unsubscribe function
     return () => {
-      subscription.unsubscribe();
+      if (subscription) subscription.unsubscribe();
       unsubscribeFirebase();
     };
   },
 
   // REGISTER: Create Auth User
   register: async (email: string, password: string): Promise<User> => {
-    let sbUser: User | null = null;
     let fbUser: User | null = null;
+    let sbUser: User | null = null;
     let lastError: any = null;
 
-    // Try Supabase
+    // 1. Try Firebase (PRIMARY)
+    if (firebaseAuth) {
+      try {
+        const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        fbUser = mapFirebaseUser(userCredential.user);
+      } catch (error: any) {
+        console.error("Firebase Registration Error:", error);
+        if (error.code === 'auth/email-already-in-use') {
+          lastError = new Error('User already registered');
+        } else {
+          lastError = error;
+        }
+      }
+    }
+
+    // 2. Try Supabase (FALLBACK)
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
       if (data.user) {
         if (data.user.identities && data.user.identities.length === 0) {
-          throw new Error('User already registered');
+          if (!lastError) lastError = new Error('User already registered');
+        } else {
+          sbUser = mapSupabaseUser(data.user);
         }
-        sbUser = mapSupabaseUser(data.user);
       }
     } catch (error: any) {
-      console.error("Supabase Registration Error:", error);
-      lastError = error;
+      console.error("Supabase Registration Error (Project might be expired):", error);
+      if (!lastError) lastError = error;
     }
 
-    // Try Firebase
-    try {
-      const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-      fbUser = mapFirebaseUser(userCredential.user);
-    } catch (error: any) {
-      console.error("Firebase Registration Error:", error);
-      if (error.code === 'auth/email-already-in-use') {
-        lastError = new Error('User already registered');
-      } else {
-        lastError = error;
-      }
-    }
-
-    if (sbUser) return sbUser;
-    if (fbUser) return fbUser;
+    if (fbUser) return fbUser; // Prefer Firebase
+    if (sbUser) return sbUser; // Fallback to Supabase
 
     let msg = "注册失败";
     if (lastError?.message === 'User already registered') msg = "该邮箱已被注册，请直接登录";
@@ -110,31 +133,33 @@ export const AuthService = {
 
   // LOGIN: Sign in
   login: async (email: string, password: string): Promise<User> => {
-    let sbUser: User | null = null;
     let fbUser: User | null = null;
+    let sbUser: User | null = null;
     let lastError: any = null;
 
-    // Try Supabase
+    // 1. Try Firebase (PRIMARY)
+    if (firebaseAuth) {
+      try {
+        const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+        fbUser = mapFirebaseUser(userCredential.user);
+      } catch (error: any) {
+        console.error("Firebase Login Error:", error);
+        lastError = error;
+      }
+    }
+
+    // 2. Try Supabase (FALLBACK)
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (data.user) sbUser = mapSupabaseUser(data.user);
     } catch (error: any) {
-      console.error("Supabase Login Error:", error);
-      lastError = error;
+      console.error("Supabase Login Error (Project might be expired):", error);
+      if (!lastError) lastError = error;
     }
 
-    // Try Firebase
-    try {
-      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      fbUser = mapFirebaseUser(userCredential.user);
-    } catch (error: any) {
-      console.error("Firebase Login Error:", error);
-      lastError = error;
-    }
-
-    if (sbUser) return sbUser;
-    if (fbUser) return fbUser;
+    if (fbUser) return fbUser; // Prefer Firebase
+    if (sbUser) return sbUser; // Fallback to Supabase
 
     let msg = "登录失败";
     if (lastError?.message?.includes('Invalid login credentials') || lastError?.code === 'auth/invalid-credential' || lastError?.code === 'auth/user-not-found' || lastError?.code === 'auth/wrong-password') {
@@ -145,38 +170,48 @@ export const AuthService = {
 
   // LOGOUT
   logout: async () => {
-    await Promise.allSettled([
-      supabase.auth.signOut(),
-      signOut(firebaseAuth)
-    ]);
+    const promises: Promise<any>[] = [];
+    if (firebaseAuth) {
+      promises.push(signOut(firebaseAuth));
+    }
+    try {
+      promises.push(supabase.auth.signOut());
+    } catch (e) {
+      console.error("Supabase logout error:", e);
+    }
+    await Promise.allSettled(promises);
   },
 
   // SAVE: Write to both databases
   saveData: async (data: UserCloudData): Promise<void> => {
     const promises: Promise<any>[] = [];
 
-    // Save to Supabase
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      promises.push(
-        supabase
-          .from('alphaseeker_user_data')
-          .upsert({
-            user_id: session.user.id,
-            data: { ...data, lastSynced: Date.now() },
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' }) as unknown as Promise<any>
-      );
-    }
-
-    // Save to Firebase
-    if (firebaseAuth.currentUser) {
+    // 1. Save to Firebase (PRIMARY)
+    if (firebaseAuth && firebaseDb && firebaseAuth.currentUser) {
       promises.push(
         setDoc(doc(firebaseDb, 'alphaseeker_user_data', firebaseAuth.currentUser.uid), {
           data: { ...data, lastSynced: Date.now() },
           updated_at: new Date().toISOString()
         })
       );
+    }
+
+    // 2. Save to Supabase (FALLBACK)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        promises.push(
+          supabase
+            .from('alphaseeker_user_data')
+            .upsert({
+              user_id: session.user.id,
+              data: { ...data, lastSynced: Date.now() },
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' }) as unknown as Promise<any>
+        );
+      }
+    } catch (e) {
+      console.error("Supabase getSession failed (Project might be expired):", e);
     }
 
     if (promises.length === 0) return;
@@ -192,29 +227,11 @@ export const AuthService = {
 
   // LOAD: Read from Supabase or Firebase
   loadData: async (): Promise<UserCloudData | null> => {
-    let sbData: UserCloudData | null = null;
     let fbData: UserCloudData | null = null;
+    let sbData: UserCloudData | null = null;
 
-    // Try Supabase
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      try {
-        const { data, error } = await supabase
-          .from('alphaseeker_user_data')
-          .select('data')
-          .eq('user_id', session.user.id)
-          .single();
-
-        if (!error && data?.data) {
-          sbData = data.data as UserCloudData;
-        }
-      } catch (e) {
-        console.error("Load from Supabase failed", e);
-      }
-    }
-
-    // Try Firebase
-    if (firebaseAuth.currentUser) {
+    // 1. Try Firebase (PRIMARY)
+    if (firebaseAuth && firebaseDb && firebaseAuth.currentUser) {
       try {
         const docSnap = await getDoc(doc(firebaseDb, 'alphaseeker_user_data', firebaseAuth.currentUser.uid));
         if (docSnap.exists()) {
@@ -228,11 +245,33 @@ export const AuthService = {
       }
     }
 
-    // Return the one with the latest lastSynced, or whichever is available
-    if (sbData && fbData) {
-      return (sbData.lastSynced || 0) > (fbData.lastSynced || 0) ? sbData : fbData;
+    // 2. Try Supabase (FALLBACK)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        try {
+          const { data, error } = await supabase
+            .from('alphaseeker_user_data')
+            .select('data')
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (!error && data?.data) {
+            sbData = data.data as UserCloudData;
+          }
+        } catch (e) {
+          console.error("Load from Supabase failed", e);
+        }
+      }
+    } catch (e) {
+      console.error("Supabase getSession failed (Project might be expired):", e);
+    }
+
+    // Return the one with the latest lastSynced. If equal or only one exists, prefer Firebase.
+    if (fbData && sbData) {
+      return (fbData.lastSynced || 0) >= (sbData.lastSynced || 0) ? fbData : sbData;
     }
     
-    return sbData || fbData || null;
+    return fbData || sbData || null;
   }
 };

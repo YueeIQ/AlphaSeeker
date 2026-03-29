@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
@@ -13,6 +13,8 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
-export const firebaseAuth = getAuth(app);
-export const firebaseDb = getFirestore(app);
+export const isFirebaseConfigured = !!firebaseConfig.apiKey;
+
+const app = isFirebaseConfigured ? (getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]) : null;
+export const firebaseAuth = app ? getAuth(app) : null;
+export const firebaseDb = app ? getFirestore(app) : null;
