@@ -9,6 +9,14 @@ import {
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { User, UserCloudData } from "../types";
 
+// Helper to add timeout to promises (prevents hanging on expired Supabase projects)
+const withTimeout = <T>(promise: Promise<T>, ms: number = 2000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ]);
+};
+
 // Helper to map Supabase User to our App User
 const mapSupabaseUser = (sbUser: any): User => ({
   uid: sbUser.id,
@@ -198,16 +206,16 @@ export const AuthService = {
 
     // 2. Save to Supabase (FALLBACK)
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await withTimeout(supabase.auth.getSession(), 2000);
       if (session?.user) {
         promises.push(
-          supabase
+          withTimeout(supabase
             .from('alphaseeker_user_data')
             .upsert({
               user_id: session.user.id,
               data: { ...data, lastSynced: Date.now() },
               updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' }) as unknown as Promise<any>
+            }, { onConflict: 'user_id' }) as unknown as Promise<any>, 3000)
         );
       }
     } catch (e) {
@@ -247,14 +255,14 @@ export const AuthService = {
 
     // 2. Try Supabase (FALLBACK)
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await withTimeout(supabase.auth.getSession(), 2000);
       if (session?.user) {
         try {
-          const { data, error } = await supabase
+          const { data, error } = await withTimeout(supabase
             .from('alphaseeker_user_data')
             .select('data')
             .eq('user_id', session.user.id)
-            .single();
+            .single() as unknown as Promise<any>, 3000);
 
           if (!error && data?.data) {
             sbData = data.data as UserCloudData;
