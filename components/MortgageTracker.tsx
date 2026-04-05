@@ -1,21 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Plus, Home, Calculator, Trash2, Calendar, DollarSign, Percent } from 'lucide-react';
+import { ArrowLeft, Plus, Home, Calculator, Trash2, Calendar, DollarSign, Percent, TrendingUp } from 'lucide-react';
 import { Mortgage } from '../types';
 
 interface MortgageTrackerProps {
   mortgages: Mortgage[];
   onUpdateMortgages: (mortgages: Mortgage[]) => void;
   onBack: () => void;
+  totalAssetValue: number;
 }
 
-const MortgageTracker: React.FC<MortgageTrackerProps> = ({ mortgages, onUpdateMortgages, onBack }) => {
+const MortgageTracker: React.FC<MortgageTrackerProps> = ({ mortgages, onUpdateMortgages, onBack, totalAssetValue }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMortgage, setEditingMortgage] = useState<Mortgage | null>(null);
 
-  const calculateCurrentMortgage = (mortgage: Mortgage) => {
+  const getMortgageStateAtDate = (mortgage: Mortgage, targetDate: Date) => {
     const start = new Date(mortgage.startDate);
-    const now = new Date();
-    
     let currentPrincipal = mortgage.initialPrincipal;
     let currentMonths = mortgage.remainingMonths;
     let monthsPassed = 0;
@@ -27,7 +26,7 @@ const MortgageTracker: React.FC<MortgageTrackerProps> = ({ mortgages, onUpdateMo
       iterDate = new Date(start.getFullYear(), start.getMonth() + monthsToAdd, mortgage.repaymentDate);
     }
 
-    while (iterDate <= now && currentMonths > 0) {
+    while (iterDate <= targetDate && currentMonths > 0) {
       const monthlyInterestRate = mortgage.interestRate / 100 / 12;
       const interestForMonth = currentPrincipal * monthlyInterestRate;
       const principalForMonth = mortgage.monthlyPayment - interestForMonth;
@@ -49,6 +48,27 @@ const MortgageTracker: React.FC<MortgageTrackerProps> = ({ mortgages, onUpdateMo
       monthsPassed
     };
   };
+
+  const calculateCurrentMortgage = (mortgage: Mortgage) => getMortgageStateAtDate(mortgage, new Date());
+
+  const projections = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const endYear = 2042;
+    const years = [];
+    for (let y = currentYear; y <= endYear; y++) {
+      years.push(y);
+    }
+    
+    return years.map(year => {
+      const juneDate = new Date(year, 5, 30); // June 30
+      const decDate = new Date(year, 11, 31); // Dec 31
+      
+      const junePrincipal = mortgages.reduce((sum, m) => sum + getMortgageStateAtDate(m, juneDate).currentPrincipal, 0);
+      const decPrincipal = mortgages.reduce((sum, m) => sum + getMortgageStateAtDate(m, decDate).currentPrincipal, 0);
+      
+      return { year, junePrincipal, decPrincipal };
+    });
+  }, [mortgages]);
 
   const fmtMoney = (n: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 2 }).format(n);
 
@@ -99,7 +119,7 @@ const MortgageTracker: React.FC<MortgageTrackerProps> = ({ mortgages, onUpdateMo
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition">
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
               <Calculator size={80} />
@@ -124,6 +144,18 @@ const MortgageTracker: React.FC<MortgageTrackerProps> = ({ mortgages, onUpdateMo
             <div className="mb-3">
               <p className="text-xs font-medium text-gray-500">每月总还款额</p>
               <h2 className="text-2xl font-bold text-gray-900 mt-1 tracking-tight">{fmtMoney(totalMonthlyPayment)}</h2>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
+            <div className="mb-3">
+              <p className="text-xs font-medium text-gray-500">净资产 (总资产 - 剩余房贷)</p>
+              <h2 className={`text-2xl font-bold mt-1 tracking-tight ${totalAssetValue - totalCurrentPrincipal >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                {fmtMoney(totalAssetValue - totalCurrentPrincipal)}
+              </h2>
+            </div>
+            <div className="text-xs text-gray-400 mt-2">
+              总资产: {fmtMoney(totalAssetValue)}
             </div>
           </div>
         </div>
@@ -201,6 +233,38 @@ const MortgageTracker: React.FC<MortgageTrackerProps> = ({ mortgages, onUpdateMo
             </div>
           )}
         </div>
+
+        {/* Projection Module */}
+        {mortgages.length > 0 && (
+          <div className="space-y-4 mt-8">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <TrendingUp size={20} className="text-indigo-600" />
+              房贷余额预估 (至2042年)
+            </h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="px-6 py-3 font-semibold">年份</th>
+                      <th className="px-6 py-3 text-right font-semibold">6月底剩余本金</th>
+                      <th className="px-6 py-3 text-right font-semibold">12月底剩余本金</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {projections.map(p => (
+                      <tr key={p.year} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 font-medium text-gray-900">{p.year}年</td>
+                        <td className="px-6 py-4 text-right font-mono text-gray-600">{p.junePrincipal > 0 ? fmtMoney(p.junePrincipal) : '-'}</td>
+                        <td className="px-6 py-4 text-right font-mono text-gray-600">{p.decPrincipal > 0 ? fmtMoney(p.decPrincipal) : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {showAddModal && (

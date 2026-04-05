@@ -400,6 +400,7 @@ const App: React.FC = () => {
         mortgages={mortgages} 
         onUpdateMortgages={setMortgages} 
         onBack={() => setCurrentView('dashboard')} 
+        totalAssetValue={summary.totalValue}
       />
     );
   }
