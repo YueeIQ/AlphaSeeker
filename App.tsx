@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, RefreshCcw, TrendingUp, DollarSign, PieChart as PieIcon, Wallet, Coins, Settings, UserCircle, LogOut, Cloud, Calculator, Trash2, BarChart3, Download, Shield, Target, Activity } from 'lucide-react';
-import { Asset, PortfolioSummary, AssetType, TargetStrategy, User, UserCloudData, SettlementConfig } from './types';
+import { Plus, RefreshCcw, TrendingUp, DollarSign, PieChart as PieIcon, Wallet, Coins, Settings, UserCircle, LogOut, Cloud, Calculator, Trash2, BarChart3, Download, Shield, Target, Activity, Home } from 'lucide-react';
+import { Asset, PortfolioSummary, AssetType, TargetStrategy, User, UserCloudData, SettlementConfig, Mortgage } from './types';
 import { INITIAL_ASSETS, DEFAULT_STRATEGY, DEFAULT_SETTLEMENT_CONFIG } from './constants';
 import { fetchLatestPrices, fetchExchangeRate } from './services/market';
 import { AuthService } from './services/auth';
@@ -12,8 +12,12 @@ import PortfolioChart from './components/PortfolioChart';
 import AuthModal from './components/AuthModal';
 import SettlementModal from './components/SettlementModal';
 import SellModal from './components/SellModal';
+import MortgageTracker from './components/MortgageTracker';
 
 const App: React.FC = () => {
+  // --- View State ---
+  const [currentView, setCurrentView] = useState<'dashboard' | 'mortgage'>('dashboard');
+
   // --- Auth State ---
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -62,6 +66,11 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : DEFAULT_SETTLEMENT_CONFIG;
   });
 
+  const [mortgages, setMortgages] = useState<Mortgage[]>(() => {
+    const saved = localStorage.getItem('alphaSeekerMortgages');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [showSettlementModal, setShowSettlementModal] = useState(false);
@@ -96,6 +105,7 @@ const App: React.FC = () => {
             if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
             if (cloudData.strategy) setStrategy(cloudData.strategy);
             if (cloudData.settlementConfig) setSettlementConfig(cloudData.settlementConfig);
+            if (cloudData.mortgages) setMortgages(cloudData.mortgages);
           }
           setHasLoadedCloudData(true);
         } catch (e) {
@@ -116,7 +126,8 @@ const App: React.FC = () => {
     localStorage.setItem('alphaSeekerProfit', realizedProfit.toString());
     localStorage.setItem('alphaSeekerStrategy', JSON.stringify(strategy));
     localStorage.setItem('alphaSeekerSettlement', JSON.stringify(settlementConfig));
-  }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig]);
+    localStorage.setItem('alphaSeekerMortgages', JSON.stringify(mortgages));
+  }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages]);
 
   useEffect(() => {
     if (user && hasLoadedCloudData) {
@@ -128,6 +139,7 @@ const App: React.FC = () => {
         realizedProfit,
         strategy,
         settlementConfig,
+        mortgages,
         lastSynced: Date.now()
       };
       AuthService.saveData(cloudData)
@@ -137,7 +149,7 @@ const App: React.FC = () => {
            setIsSyncing(false); 
         });
     }
-  }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, user, hasLoadedCloudData]);
+  }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages, user, hasLoadedCloudData]);
 
   const handleLoginSuccess = async (loggedInUser: User, cloudData: UserCloudData | null) => {
     if (cloudData) {
@@ -153,6 +165,7 @@ const App: React.FC = () => {
         if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
         if (cloudData.strategy) setStrategy(cloudData.strategy);
         if (cloudData.settlementConfig) setSettlementConfig(cloudData.settlementConfig);
+        if (cloudData.mortgages) setMortgages(cloudData.mortgages);
       }
     }
     setHasLoadedCloudData(true);
@@ -365,6 +378,7 @@ const App: React.FC = () => {
         realizedProfit,
         strategy,
         settlementConfig,
+        mortgages,
         lastSynced: Date.now()
       };
       await AuthService.saveData(cloudData);
@@ -379,6 +393,16 @@ const App: React.FC = () => {
 
   const targetCashAmount = summary.totalValue * ((strategy.allocations[AssetType.CASH] || 0) / 100);
   const investableCash = Math.max(0, summary.cashBalance - targetCashAmount);
+
+  if (currentView === 'mortgage') {
+    return (
+      <MortgageTracker 
+        mortgages={mortgages} 
+        onUpdateMortgages={setMortgages} 
+        onBack={() => setCurrentView('dashboard')} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 pb-20">
@@ -702,6 +726,16 @@ const App: React.FC = () => {
             </table>
           </div>
         </section>
+
+        <div className="flex justify-center mt-8">
+          <button
+            onClick={() => setCurrentView('mortgage')}
+            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium bg-indigo-50 hover:bg-indigo-100 px-6 py-3 rounded-xl transition shadow-sm"
+          >
+            <Home size={18} />
+            进入剩余房贷追踪
+          </button>
+        </div>
       </main>
 
       {showAddModal && (

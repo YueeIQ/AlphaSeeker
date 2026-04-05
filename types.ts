@@ -63,6 +63,17 @@ export interface User {
   name: string;
 }
 
+export interface Mortgage {
+  id: string;
+  name: string;
+  initialPrincipal: number; // 初始录入时的剩余房贷金额
+  interestRate: number; // 房贷利率 (e.g., 4.1 for 4.1%)
+  remainingMonths: number; // 初始录入时的剩余还款月份数
+  monthlyPayment: number; // 当前每月还款金额
+  repaymentDate: number; // 每月还款日期 (1-31)
+  startDate: string; // 录入日期
+}
+
 export interface UserCloudData {
   assets: Asset[];
   cashBalance: number;
@@ -70,5 +81,6 @@ export interface UserCloudData {
   realizedProfit?: number;
   strategy: TargetStrategy;
   settlementConfig?: SettlementConfig;
+  mortgages?: Mortgage[];
   lastSynced: number;
 }
