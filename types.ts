@@ -29,6 +29,7 @@ export interface PortfolioSummary {
   allocation: Record<AssetType, number>; // Percentage 0-100
   typeDetails: Record<AssetType, { value: number; cost: number; return: number; returnPercent: number }>;
   cashBalance: number;
+  usdCashBalance?: number;
   realizedLoss: number;
   realizedProfit: number;
 }
@@ -77,6 +78,7 @@ export interface Mortgage {
 export interface UserCloudData {
   assets: Asset[];
   cashBalance: number;
+  usdCashBalance?: number;
   realizedLoss?: number;
   realizedProfit?: number;
   strategy: TargetStrategy;

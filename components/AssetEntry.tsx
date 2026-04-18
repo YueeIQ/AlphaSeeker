@@ -7,10 +7,12 @@ import { lookupAssetDetails } from '../services/market';
 interface AssetEntryProps {
   onAddAssets: (assets: Omit<Asset, 'id' | 'lastUpdated'>[]) => void;
   onUpdateCash: (amount: number) => void;
+  onUpdateUsdCash: (amount: number) => void;
   onAddLoss: (amount: number) => void;
-  onSetLoss: (amount: number) => void; // New: Capability to override total loss
+  onSetLoss: (amount: number) => void;
   currentCash: number;
-  currentLoss: number; // New: Display current loss
+  currentUsdCash: number;
+  currentLoss: number;
   onClose: () => void;
   strategy: TargetStrategy;
 }
@@ -20,9 +22,11 @@ type EntryMode = 'single' | 'batch' | 'cash' | 'loss';
 const AssetEntry: React.FC<AssetEntryProps> = ({ 
   onAddAssets, 
   onUpdateCash, 
+  onUpdateUsdCash,
   onAddLoss, 
   onSetLoss,
   currentCash, 
+  currentUsdCash,
   currentLoss,
   onClose,
   strategy
@@ -47,6 +51,7 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
 
   // Cash State
   const [cashInput, setCashInput] = useState(currentCash.toString());
+  const [usdCashInput, setUsdCashInput] = useState(currentUsdCash.toString());
 
   // Loss State
   const [lossMode, setLossMode] = useState<'add' | 'set'>('add'); // 'add' = Cumulative, 'set' = Override
@@ -170,8 +175,20 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
   const handleCashSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const val = parseFloat(cashInput);
+    const usdVal = parseFloat(usdCashInput);
+    
+    let isUpdated = false;
+    
     if (!isNaN(val)) {
       onUpdateCash(val);
+      isUpdated = true;
+    }
+    if (!isNaN(usdVal)) {
+      onUpdateUsdCash(usdVal);
+      isUpdated = true;
+    }
+    
+    if (isUpdated) {
       onClose();
     }
   };
@@ -338,14 +355,32 @@ const AssetEntry: React.FC<AssetEntryProps> = ({
 
           {mode === 'cash' && (
             <form onSubmit={handleCashSubmit} className="space-y-4">
-              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-4">
-                <p className="text-xs text-indigo-500 font-bold mb-1 uppercase tracking-wider">当前现金持有量</p>
-                <p className="text-2xl font-black text-indigo-900">¥{parseFloat(cashInput).toLocaleString()}</p>
+              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-4 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-indigo-500 font-bold mb-1 uppercase tracking-wider">当前人民币持有量</p>
+                  <p className="text-xl font-black text-indigo-900">¥{parseFloat(cashInput || '0').toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-indigo-500 font-bold mb-1 uppercase tracking-wider">当前美元持有量</p>
+                  <p className="text-xl font-black text-indigo-900">${parseFloat(usdCashInput || '0').toLocaleString()}</p>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">重置现金金额 (CNY)</label>
-                <input autoFocus type="number" step="any" value={cashInput} onChange={e => setCashInput(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-lg font-bold" placeholder="0.00"/>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">重置人民币现金 (CNY)</label>
+                  <input autoFocus type="number" step="any" value={cashInput} onChange={e => setCashInput(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-lg font-bold" placeholder="0.00"/>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">重置美元现金 (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-3 text-gray-500 font-bold text-lg">$</span>
+                    <input type="number" step="any" value={usdCashInput} onChange={e => setUsdCashInput(e.target.value)} className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-lg font-bold" placeholder="0.00"/>
+                  </div>
+                </div>
               </div>
+              
               <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 transition font-bold shadow-lg shadow-indigo-100">
                 更新现金余额
               </button>

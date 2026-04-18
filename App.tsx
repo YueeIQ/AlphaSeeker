@@ -46,6 +46,11 @@ const App: React.FC = () => {
     return saved ? parseFloat(saved) : 0;
   });
 
+  const [usdCashBalance, setUsdCashBalance] = useState<number>(() => {
+    const saved = localStorage.getItem('alphaSeekerUsdCash');
+    return saved ? parseFloat(saved) : 0;
+  });
+
   const [realizedLoss, setRealizedLoss] = useState<number>(() => {
     const saved = localStorage.getItem('alphaSeekerLoss');
     return saved ? parseFloat(saved) : 0;
@@ -101,6 +106,7 @@ const App: React.FC = () => {
               })));
             }
             if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
+            if (typeof cloudData.usdCashBalance === 'number') setUsdCashBalance(cloudData.usdCashBalance);
             if (typeof cloudData.realizedLoss === 'number') setRealizedLoss(cloudData.realizedLoss);
             if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
             if (cloudData.strategy) setStrategy(cloudData.strategy);
@@ -122,12 +128,13 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('alphaSeekerAssets', JSON.stringify(assets));
     localStorage.setItem('alphaSeekerCash', cashBalance.toString());
+    localStorage.setItem('alphaSeekerUsdCash', usdCashBalance.toString());
     localStorage.setItem('alphaSeekerLoss', realizedLoss.toString());
     localStorage.setItem('alphaSeekerProfit', realizedProfit.toString());
     localStorage.setItem('alphaSeekerStrategy', JSON.stringify(strategy));
     localStorage.setItem('alphaSeekerSettlement', JSON.stringify(settlementConfig));
     localStorage.setItem('alphaSeekerMortgages', JSON.stringify(mortgages));
-  }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages]);
+  }, [assets, cashBalance, usdCashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages]);
 
   useEffect(() => {
     if (user && hasLoadedCloudData) {
@@ -135,6 +142,7 @@ const App: React.FC = () => {
       const cloudData: UserCloudData = {
         assets,
         cashBalance,
+        usdCashBalance,
         realizedLoss,
         realizedProfit,
         strategy,
@@ -149,7 +157,7 @@ const App: React.FC = () => {
            setIsSyncing(false); 
         });
     }
-  }, [assets, cashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages, user, hasLoadedCloudData]);
+  }, [assets, cashBalance, usdCashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages, user, hasLoadedCloudData]);
 
   const handleLoginSuccess = async (loggedInUser: User, cloudData: UserCloudData | null) => {
     if (cloudData) {
@@ -161,6 +169,7 @@ const App: React.FC = () => {
           })));
         }
         if (typeof cloudData.cashBalance === 'number') setCashBalance(cloudData.cashBalance);
+        if (typeof cloudData.usdCashBalance === 'number') setUsdCashBalance(cloudData.usdCashBalance);
         if (typeof cloudData.realizedLoss === 'number') setRealizedLoss(cloudData.realizedLoss);
         if (typeof cloudData.realizedProfit === 'number') setRealizedProfit(cloudData.realizedProfit);
         if (cloudData.strategy) setStrategy(cloudData.strategy);
@@ -210,13 +219,14 @@ const App: React.FC = () => {
       }
     });
 
-    const totalValue = investValue + cashBalance;
-    const totalCost = investCost + cashBalance;
-    typeValue[AssetType.CASH] = cashBalance;
+    const totalCashValue = cashBalance + (usdCashBalance * exchangeRate);
+    const totalValue = investValue + totalCashValue;
+    const totalCost = investCost + totalCashValue;
+    typeValue[AssetType.CASH] = totalCashValue;
     
     // Add Cash to details
-    typeDetails[AssetType.CASH].value = cashBalance;
-    typeDetails[AssetType.CASH].cost = cashBalance;
+    typeDetails[AssetType.CASH].value = totalCashValue;
+    typeDetails[AssetType.CASH].cost = totalCashValue;
 
     // Calculate Percentages for Details
     Object.keys(typeDetails).forEach(key => {
@@ -242,10 +252,11 @@ const App: React.FC = () => {
       allocation,
       typeDetails, // New field
       cashBalance,
+      usdCashBalance,
       realizedLoss,
       realizedProfit
     };
-  }, [assets, cashBalance, realizedLoss, realizedProfit]);
+  }, [assets, cashBalance, usdCashBalance, realizedLoss, realizedProfit, exchangeRate]);
 
   const normalizeCode = (code: string) => {
     if (!code) return '';
@@ -374,6 +385,7 @@ const App: React.FC = () => {
       const cloudData: UserCloudData = {
         assets,
         cashBalance,
+        usdCashBalance,
         realizedLoss,
         realizedProfit,
         strategy,
@@ -392,7 +404,8 @@ const App: React.FC = () => {
   };
 
   const targetCashAmount = summary.totalValue * ((strategy.allocations[AssetType.CASH] || 0) / 100);
-  const investableCash = Math.max(0, summary.cashBalance - targetCashAmount);
+  const totalCashRef = summary.cashBalance + ((summary.usdCashBalance || 0) * exchangeRate);
+  const investableCash = Math.max(0, totalCashRef - targetCashAmount);
 
   if (currentView === 'mortgage') {
     return (
@@ -665,6 +678,21 @@ const App: React.FC = () => {
                       </td>
                    </tr>
                 )}
+                {usdCashBalance > 0 && (
+                   <tr className="bg-green-50/10 hover:bg-green-50/20 transition">
+                      <td className="px-6 py-4 font-medium text-gray-900">美元现金</td>
+                      <td className="px-6 py-4"><span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-medium">{strategy.customNames?.[AssetType.CASH] || AssetType.CASH}</span></td>
+                      <td className="px-6 py-4 text-right font-medium">
+                        {summary.totalValue > 0 ? (((usdCashBalance * exchangeRate) / summary.totalValue) * 100).toFixed(2) : 0}%
+                      </td>
+                      <td className="px-6 py-4 text-right text-gray-500">{fmtMoney(usdCashBalance * exchangeRate)} <br/><span className="text-[10px] block mt-0.5 opacity-60">(${usdCashBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></td>
+                      <td className="px-6 py-4 text-right font-bold text-gray-900">{fmtMoney(usdCashBalance * exchangeRate)} <br/><span className="text-[10px] block mt-0.5 opacity-60">(${usdCashBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span></td>
+                      <td className="px-6 py-4 text-right text-gray-400">-</td>
+                      <td className="px-6 py-4 text-center">
+                         <button onClick={() => setShowAddModal(true)} className="text-indigo-600 hover:text-indigo-800 text-xs font-medium bg-indigo-50 px-3 py-1 rounded hover:bg-indigo-100 transition">管理</button>
+                      </td>
+                   </tr>
+                )}
                 {assets.map(asset => {
                   const rate = asset.currency === 'USD' ? exchangeRate : 1;
                   const marketVal = asset.quantity * asset.currentPrice * rate;
@@ -743,9 +771,11 @@ const App: React.FC = () => {
         <AssetEntry 
           onAddAssets={handleAddAssets} 
           onUpdateCash={setCashBalance}
+          onUpdateUsdCash={setUsdCashBalance}
           onAddLoss={(amount) => setRealizedLoss(prev => prev + amount)}
           onSetLoss={setRealizedLoss}
           currentCash={cashBalance}
+          currentUsdCash={usdCashBalance}
           currentLoss={realizedLoss}
           onClose={() => setShowAddModal(false)} 
           strategy={strategy}
