@@ -62,20 +62,20 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({ summary, strategy }) =>
   if (data.length === 0) return <div className="h-full flex items-center justify-center text-gray-400 text-xs">暂无资产数据</div>;
 
   return (
-    <div className="h-[300px] w-full bg-white rounded-xl overflow-hidden pt-4 pr-2">
+    <div className="h-[120px] w-full bg-white rounded-xl overflow-hidden pt-2 pr-2">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
-          barSize={32}
+          margin={{ top: 10, right: 10, left: -20, bottom: -5 }}
+          barSize={24}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
           <XAxis 
             dataKey="name" 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fill: '#4b5563', fontSize: 11, fontWeight: 600 }}
-            dy={10}
+            tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 600 }}
+            dy={5}
             interval={0} // Force show all labels
           />
           <YAxis 

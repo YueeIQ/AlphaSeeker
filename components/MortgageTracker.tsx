@@ -70,7 +70,7 @@ const MortgageTracker: React.FC<MortgageTrackerProps> = ({ mortgages, onUpdateMo
     });
   }, [mortgages]);
 
-  const fmtMoney = (n: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 2 }).format(n);
+  const fmtMoney = (n: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', maximumFractionDigits: 0 }).format(n);
 
   const handleDelete = (id: string) => {
     if (confirm('确定要删除这笔房贷记录吗？')) {

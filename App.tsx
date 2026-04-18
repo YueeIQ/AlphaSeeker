@@ -539,75 +539,60 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden group hover:shadow-md transition">
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <DollarSign size={80} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group hover:shadow-md transition">
+            <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <DollarSign size={120} />
             </div>
-            <div className="mb-3">
-              <p className="text-xs font-medium text-gray-500">总资产净值 (CNY)</p>
-              <h2 className="text-2xl font-bold text-gray-900 mt-1 tracking-tight">{fmtMoney(summary.totalValue)}</h2>
+            <p className="text-sm font-medium text-gray-500 mb-1">总资产净值 (CNY)</p>
+            <h2 className="text-3xl font-black text-gray-900 tracking-tight">{fmtMoney(summary.totalValue)}</h2>
+            <div className="mt-auto pt-4 flex justify-between items-end border-t border-gray-50">
+               <div className="text-xs text-gray-400 font-medium">投入本金总额: <span className="text-gray-600">{fmtMoney(summary.totalCost)}</span></div>
             </div>
-            <div className="pt-3 border-t border-gray-50">
-               <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500">累计盈亏</span>
-                  <span className={`text-base font-bold ${summary.totalReturn >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {summary.totalReturn >= 0 ? '+' : ''}{fmtMoney(summary.totalReturn)}
-                  </span>
-               </div>
-               {(realizedLoss > 0 || realizedProfit > 0) && (
-                 <div className="mt-1.5 space-y-1">
-                   {realizedProfit > 0 && (
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="text-gray-400">已止盈落袋</span>
-                        <span className="font-medium text-red-600">+{fmtMoney(realizedProfit)}</span>
-                      </div>
-                   )}
-                   {realizedLoss > 0 && (
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="text-gray-400">已割肉亏损</span>
-                        <span className="font-medium text-green-600">-{fmtMoney(realizedLoss)}</span>
-                      </div>
-                   )}
-                 </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden hover:shadow-md transition">
+            <p className="text-sm font-medium text-gray-500 mb-1">累计盈亏 (总收益)</p>
+            <h2 className={`text-3xl font-black tracking-tight ${summary.totalReturn >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {summary.totalReturn >= 0 ? '+' : ''}{fmtMoney(summary.totalReturn)}
+            </h2>
+            <div className="mt-auto pt-4 space-y-1.5 border-t border-gray-50">
+               {realizedProfit > 0 && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">已止盈落袋</span>
+                    <span className="font-bold text-red-500">+{fmtMoney(realizedProfit)}</span>
+                  </div>
                )}
-               <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-50">
-                  <span className="text-[10px] text-gray-400">可投入现金</span>
-                  <span className="text-xs font-medium text-gray-600">{fmtMoney(investableCash)}</span>
-               </div>
+               {realizedLoss > 0 && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-400">已割肉沉没</span>
+                    <span className="font-bold text-green-500">-{fmtMoney(realizedLoss)}</span>
+                  </div>
+               )}
+               {realizedProfit === 0 && realizedLoss === 0 && (
+                  <div className="text-xs text-gray-300">暂无落袋盈亏</div>
+               )}
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
-            <div>
-              <p className="text-xs font-medium text-gray-500">总收益率 (累计)</p>
-              <div className="flex items-end gap-2 mt-1">
-                <h2 className={`text-2xl font-bold ${summary.totalReturnPercent >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {fmtPct(summary.totalReturnPercent)}
-                </h2>
-              </div>
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-2 mt-3 overflow-hidden relative">
-              <div className="absolute top-0 bottom-0 w-0.5 bg-gray-400 z-10" style={{ left: '50%' }}></div>
-              <div className={`h-2 rounded-full ${summary.totalReturnPercent >= 0 ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(Math.abs(summary.totalReturnPercent) / 0.3, 100)}%` }}></div>
-            </div>
-            <div className="flex justify-between mt-2 text-[10px] text-gray-400">
-               <span>当前</span>
-               <span>目标: 15.0%</span>
-            </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative hover:shadow-md transition">
+            <p className="text-sm font-medium text-gray-500 mb-1">总收益率 (累计)</p>
+            <h2 className={`text-3xl font-black tracking-tight ${summary.totalReturnPercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {fmtPct(summary.totalReturnPercent)}
+            </h2>
           </div>
 
-           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col hover:shadow-md transition">
              <div className="flex justify-between items-start mb-2">
                <div>
-                  <p className="text-xs font-medium text-gray-500">资产盈利分布</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">各类资产绝对收益贡献排行</p>
+                  <p className="text-sm font-medium text-gray-500">资产盈利分布</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">绝对收益贡献排行</p>
                </div>
-               <div className="bg-indigo-50 p-1.5 rounded-lg text-indigo-600">
-                 <BarChart3 size={16} />
+               <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
+                 <BarChart3 size={18} />
                </div>
              </div>
-             <div className="flex-1 -ml-4">
+             <div className="flex-1 -ml-4 mt-2">
                {summary.totalValue > 0 ? (
                  <PortfolioChart summary={summary} strategy={strategy} />
                ) : (
