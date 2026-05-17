@@ -75,6 +75,13 @@ export interface Mortgage {
   startDate: string; // 录入日期
 }
 
+export interface Discipline {
+  id: string;
+  label: string;
+  title: string;
+  content: string;
+}
+
 export interface UserCloudData {
   assets: Asset[];
   cashBalance: number;
@@ -84,5 +91,7 @@ export interface UserCloudData {
   strategy: TargetStrategy;
   settlementConfig?: SettlementConfig;
   mortgages?: Mortgage[];
+  disciplines?: Discipline[];
+  recentFocus?: string;
   lastSynced: number;
 }

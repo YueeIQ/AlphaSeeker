@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, RefreshCcw, TrendingUp, DollarSign, PieChart as PieIcon, Wallet, Coins, Settings, UserCircle, LogOut, Cloud, Calculator, Trash2, BarChart3, Download, Shield, Target, Activity, Home } from 'lucide-react';
-import { Asset, PortfolioSummary, AssetType, TargetStrategy, User, UserCloudData, SettlementConfig, Mortgage } from './types';
+import { Asset, PortfolioSummary, AssetType, TargetStrategy, User, UserCloudData, SettlementConfig, Mortgage, Discipline } from './types';
 import { INITIAL_ASSETS, DEFAULT_STRATEGY, DEFAULT_SETTLEMENT_CONFIG } from './constants';
 import { fetchLatestPrices, fetchExchangeRate } from './services/market';
 import { AuthService } from './services/auth';
@@ -9,6 +9,7 @@ import AssetEntry from './components/AssetEntry';
 import StrategyPanel from './components/StrategyPanel';
 import StrategyConfig from './components/StrategyConfig';
 import PortfolioChart from './components/PortfolioChart';
+import InvestmentMemo from './components/InvestmentMemo';
 import AuthModal from './components/AuthModal';
 import SettlementModal from './components/SettlementModal';
 import SellModal from './components/SellModal';
@@ -76,6 +77,21 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [disciplines, setDisciplines] = useState<Discipline[]>(() => {
+    const saved = localStorage.getItem('alphaSeekerDisciplines');
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: '1', label: '择时', title: '择时与研究', content: '在合理的价格，购买优质的资产，投资者95%以上的时间应该是研究、调查、等待。把握1-2次的核心机会就足够。' },
+      { id: '2', label: '耐心', title: '复利与持有', content: '靠复利的力量。只要企业基本面没有变化，就没有理由卖出。真正的财富积累靠的是十年、二十年的持有。' },
+      { id: '3', label: '复利', title: '心态与节奏', content: '慢就是快，稳就是赢，不追求急财、快钱。' },
+      { id: '4', label: '求慢', title: '现金管理', content: '节俭保有现金。' },
+    ];
+  });
+
+  const [recentFocus, setRecentFocus] = useState<string>(() => {
+    return localStorage.getItem('alphaSeekerRecentFocus') || '专注主业，提升现金流...';
+  });
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [showSettlementModal, setShowSettlementModal] = useState(false);
@@ -112,6 +128,8 @@ const App: React.FC = () => {
             if (cloudData.strategy) setStrategy(cloudData.strategy);
             if (cloudData.settlementConfig) setSettlementConfig(cloudData.settlementConfig);
             if (cloudData.mortgages) setMortgages(cloudData.mortgages);
+            if (cloudData.disciplines) setDisciplines(cloudData.disciplines);
+            if (cloudData.recentFocus) setRecentFocus(cloudData.recentFocus);
           }
           setHasLoadedCloudData(true);
         } catch (e) {
@@ -134,7 +152,9 @@ const App: React.FC = () => {
     localStorage.setItem('alphaSeekerStrategy', JSON.stringify(strategy));
     localStorage.setItem('alphaSeekerSettlement', JSON.stringify(settlementConfig));
     localStorage.setItem('alphaSeekerMortgages', JSON.stringify(mortgages));
-  }, [assets, cashBalance, usdCashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages]);
+    localStorage.setItem('alphaSeekerDisciplines', JSON.stringify(disciplines));
+    localStorage.setItem('alphaSeekerRecentFocus', recentFocus);
+  }, [assets, cashBalance, usdCashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages, disciplines, recentFocus]);
 
   useEffect(() => {
     if (user && hasLoadedCloudData) {
@@ -148,6 +168,8 @@ const App: React.FC = () => {
         strategy,
         settlementConfig,
         mortgages,
+        disciplines,
+        recentFocus,
         lastSynced: Date.now()
       };
       AuthService.saveData(cloudData)
@@ -157,7 +179,7 @@ const App: React.FC = () => {
            setIsSyncing(false); 
         });
     }
-  }, [assets, cashBalance, usdCashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages, user, hasLoadedCloudData]);
+  }, [assets, cashBalance, usdCashBalance, realizedLoss, realizedProfit, strategy, settlementConfig, mortgages, disciplines, recentFocus, user, hasLoadedCloudData]);
 
   const handleLoginSuccess = async (loggedInUser: User, cloudData: UserCloudData | null) => {
     if (cloudData) {
@@ -175,6 +197,8 @@ const App: React.FC = () => {
         if (cloudData.strategy) setStrategy(cloudData.strategy);
         if (cloudData.settlementConfig) setSettlementConfig(cloudData.settlementConfig);
         if (cloudData.mortgages) setMortgages(cloudData.mortgages);
+        if (cloudData.disciplines) setDisciplines(cloudData.disciplines);
+        if (cloudData.recentFocus) setRecentFocus(cloudData.recentFocus);
       }
     }
     setHasLoadedCloudData(true);
@@ -484,60 +508,12 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         
-        {/* Investment Memo Section */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl shadow-xl overflow-hidden border border-indigo-900/50">
-          <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
-            <div className="bg-indigo-500/20 p-2 rounded-lg">
-              <Shield className="text-indigo-400" size={20} />
-            </div>
-            <h2 className="text-lg font-bold text-white tracking-wide">AlphaSeeker 投资纪律</h2>
-            <div className="ml-auto text-xs font-medium text-indigo-300/60 uppercase tracking-widest">Investment Memo</div>
-          </div>
-          <div className="px-6 py-4 bg-white/5 border-b border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="flex justify-center">
-              <span className="w-full max-w-[140px] py-1.5 text-center rounded-full bg-indigo-500/20 text-indigo-300 text-sm font-bold tracking-widest border border-indigo-500/30 shadow-sm">择时</span>
-            </div>
-            <div className="flex justify-center">
-              <span className="w-full max-w-[140px] py-1.5 text-center rounded-full bg-emerald-500/20 text-emerald-300 text-sm font-bold tracking-widest border border-emerald-500/30 shadow-sm">耐心</span>
-            </div>
-            <div className="flex justify-center">
-              <span className="w-full max-w-[140px] py-1.5 text-center rounded-full bg-amber-500/20 text-amber-300 text-sm font-bold tracking-widest border border-amber-500/30 shadow-sm">复利</span>
-            </div>
-            <div className="flex justify-center">
-              <span className="w-full max-w-[140px] py-1.5 text-center rounded-full bg-blue-500/20 text-blue-300 text-sm font-bold tracking-widest border border-blue-500/30 shadow-sm">求慢</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/10">
-            <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
-              <div className="flex items-center gap-2 text-indigo-400">
-                <Target size={18} />
-                <span className="font-bold text-sm tracking-wider">择时与研究</span>
-              </div>
-              <p className="text-sm text-indigo-100/80 leading-relaxed">在合理的价格，购买优质的资产，投资者95%以上的时间应该是研究、调查、等待。把握1-2次的核心机会就足够。</p>
-            </div>
-            <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <TrendingUp size={18} />
-                <span className="font-bold text-sm tracking-wider">复利与持有</span>
-              </div>
-              <p className="text-sm text-indigo-100/80 leading-relaxed">靠复利的力量。只要企业基本面没有变化，就没有理由卖出。真正的财富积累靠的是十年、二十年的持有。</p>
-            </div>
-            <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
-              <div className="flex items-center gap-2 text-amber-400">
-                <Activity size={18} />
-                <span className="font-bold text-sm tracking-wider">心态与节奏</span>
-              </div>
-              <p className="text-sm text-indigo-100/80 leading-relaxed">慢就是快，稳就是赢，不追求急财、快钱。</p>
-            </div>
-            <div className="p-6 flex flex-col gap-3 hover:bg-white/5 transition-colors">
-              <div className="flex items-center gap-2 text-blue-400">
-                <Wallet size={18} />
-                <span className="font-bold text-sm tracking-wider">现金管理</span>
-              </div>
-              <p className="text-sm text-indigo-100/80 leading-relaxed">节俭保有现金。</p>
-            </div>
-          </div>
-        </div>
+        <InvestmentMemo 
+          disciplines={disciplines}
+          recentFocus={recentFocus}
+          onUpdateDisciplines={setDisciplines}
+          onUpdateRecentFocus={setRecentFocus}
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group hover:shadow-md transition">
